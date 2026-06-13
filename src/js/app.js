@@ -92,6 +92,9 @@ const App = {
                     } else if (view === 'browse') {
                         UI.showView('browse');
                         Search.loadGenres();
+                    } else if (view === 'playlists') {
+                        UI.showView('playlists');
+                        UI.renderPlaylistsPage();
                     } else if (view === 'settings') {
                         UI.showView('settings');
                         App.loadSettings();

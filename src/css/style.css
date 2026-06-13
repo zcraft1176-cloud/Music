@@ -302,6 +302,13 @@
     border-radius: 0.75rem;
 }
 
+/* Hide Playlists nav button on desktop (inline list visible) */
+@media (min-width: 768px) {
+    #sidebar .nav-btn[data-view="playlists"] {
+        display: none;
+    }
+}
+
 /* ========================================
    MOBILE OVERLAY
    ======================================== */
@@ -355,6 +362,11 @@
     #sidebar .nav-btn[data-view="search"],
     #sidebar .nav-btn[data-view="trending"],
     #sidebar .nav-btn[data-view="queue"] {
+        display: none;
+    }
+
+    /* --- Hide desktop playlist list in sidebar on mobile --- */
+    #sidebarPlaylists {
         display: none;
     }
 

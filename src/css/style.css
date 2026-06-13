@@ -350,6 +350,19 @@
         left: 0.75rem;
     }
 
+    /* --- Hide sidebar items already in bottom nav --- */
+    #sidebar .nav-btn[data-view="home"],
+    #sidebar .nav-btn[data-view="search"],
+    #sidebar .nav-btn[data-view="trending"],
+    #sidebar .nav-btn[data-view="queue"] {
+        display: none;
+    }
+
+    /* --- Also hide the Queue section wrapper at sidebar bottom --- */
+    #sidebar > div:last-of-type:has(.nav-btn[data-view="queue"]) {
+        display: none;
+    }
+
     /* --- Header/search bar --- */
     header.bg-dark-200 {
         padding-left: 1rem;

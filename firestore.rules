@@ -1,0 +1,10 @@
+rules_version='2'
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read/write their own playlist data
+    match /users/{userId}/playlists/{playlistId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Stream - Free High Quality Music</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#8b5cf6',
+                        secondary: '#06b6d4',
+                        dark: {
+                            100: '#1e1e2e',
+                            200: '#181825',
+                            300: '#11111b',
+                            400: '#0a0a0f'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="src/css/style.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <!-- SortableJS for drag-and-drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+</head>
+<body class="bg-dark-400 text-white min-h-screen overflow-hidden">
+    <div id="app" class="flex h-screen">
+        <!-- Mobile Menu Toggle -->
+        <button id="mobileMenuBtn" class="md:hidden fixed top-4 left-4 z-50 bg-dark-200 p-2 rounded-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-dark-300 flex flex-col border-r border-gray-800 shrink-0">
+            <!-- Logo -->
+            <div class="p-6 border-b border-gray-800">
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    Music Stream
+                </h1>
+                <p class="text-xs text-gray-400 mt-1">Free High Quality Music</p>
+            </div>
+
+            <!-- Auth Area -->
+            <div id="authArea" class="px-4 py-3 border-b border-gray-800">
+                <!-- Filled dynamically by auth.js -->
+            </div>
+
+            <!-- Navigation -->
+            <nav class="p-4 space-y-2">
+                <button data-view="home" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    <span>Home</span>
+                </button>
+                <button data-view="search" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <span>Search</span>
+                </button>
+                <button data-view="browse" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    <span>Browse</span>
+                </button>
+                <button data-view="trending" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                    <span>Trending</span>
+                </button>
+                <button data-view="settings" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <!-- Playlists Section -->
+            <div class="flex-1 p-4 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase">Playlists</h3>
+                    <button id="createPlaylistBtn" class="text-primary hover:text-purple-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="playlistList" class="space-y-1">
+                    <!-- Playlists will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Queue Section -->
+            <div class="p-4 border-t border-gray-800">
+                <button data-view="queue" class="nav-btn w-full flex items-center gap-3 px-4 py-2 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                    </svg>
+                    <span>Queue</span>
+                    <span id="queueCount" class="ml-auto bg-primary text-white text-xs px-2 py-0.5 rounded-full">0</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header with Search -->
+            <header class="p-4 bg-dark-200 border-b border-gray-800">
+                <div class="flex items-center gap-4">
+                    <div class="flex-1 relative max-w-2xl">
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            placeholder="Search songs, artists, genres..." 
+                            class="w-full bg-dark-100 border border-gray-700 rounded-full px-5 py-3 pl-12 text-white placeholder-gray-500 focus:outline-none focus:border-primary transition-colors"
+                        >
+                        <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div id="contentArea" class="flex-1 overflow-y-auto p-6">
+                <!-- Home View -->
+                <div id="homeView" class="view-content">
+                    <section class="mb-8">
+                        <h2 class="text-2xl font-bold mb-4">Welcome to Music Stream</h2>
+                        <p class="text-gray-400">Discover and stream high-quality music for free from multiple sources</p>
+                    </section>
+
+                    <!-- Trending Section -->
+                    <section class="mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold">Trending Now</h3>
+                            <button class="text-primary hover:text-purple-400 text-sm" data-view="trending">See all</button>
+                        </div>
+                        <div id="trendingTracks" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            <!-- Tracks will be rendered here -->
+                            <div class="skeleton-card animate-pulse bg-dark-100 rounded-xl h-48"></div>
+                            <div class="skeleton-card animate-pulse bg-dark-100 rounded-xl h-48"></div>
+                            <div class="skeleton-card animate-pulse bg-dark-100 rounded-xl h-48"></div>
+                            <div class="skeleton-card animate-pulse bg-dark-100 rounded-xl h-48"></div>
+                        </div>
+                    </section>
+
+                    <!-- Genres Section -->
+                    <section>
+                        <h3 class="text-xl font-bold mb-4">Browse by Genre</h3>
+                        <div id="genreList" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                            <!-- Genres will be rendered here -->
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Search View -->
+                <div id="searchView" class="view-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">Search Results</h2>
+                    <div id="searchResults" class="space-y-2">
+                        <!-- Search results will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Browse View -->
+                <div id="browseView" class="view-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">Browse Music</h2>
+                    <div id="browseContent" class="space-y-6">
+                        <!-- Browse content will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Trending View -->
+                <div id="trendingView" class="view-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">Trending Music</h2>
+                    <div id="trendingContent" class="space-y-2">
+                        <!-- Trending content will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Queue View -->
+                <div id="queueView" class="view-content hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold">Queue</h2>
+                        <button id="clearQueueBtn" class="text-red-400 hover:text-red-300 text-sm">Clear Queue</button>
+                    </div>
+                    <div id="queueContent" class="space-y-2">
+                        <!-- Queue content will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Playlist View -->
+                <div id="playlistView" class="view-content hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 id="playlistTitle" class="text-2xl font-bold">Playlist</h2>
+                        <div class="flex gap-2">
+                            <button id="playPlaylistBtn" class="bg-primary hover:bg-purple-600 px-4 py-2 rounded-full text-sm transition-colors">
+                                Play All
+                            </button>
+                            <button id="deletePlaylistBtn" class="text-red-400 hover:text-red-300 text-sm">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                    <div id="playlistContent" class="space-y-2">
+                        <!-- Playlist content will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Settings View -->
+                <div id="settingsView" class="view-content hidden">
+                    <h2 class="text-2xl font-bold mb-6">Settings</h2>
+                    <div class="max-w-2xl space-y-6">
+
+                        <!-- Account -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4">👤 Akun</h3>
+                            <div id="accountSection">
+                                <!-- Filled dynamically by auth.js -->
+                            </div>
+                        </div>
+
+                        <!-- About -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold">Music Stream</h3>
+                                    <p class="text-sm text-gray-400">v2.0 — YouTube IFrame Engine</p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-gray-400 leading-relaxed">
+                                Aplikasi streaming musik gratis yang menggabungkan metadata Deezer dengan audio dari YouTube.
+                                Cari jutaan lagu, buat playlist, dan dengarkan langsung di browser tanpa akun.
+                            </p>
+                        </div>
+
+                        <!-- How It Works -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4">🔧 Cara Kerja</h3>
+                            <div class="space-y-4 text-sm">
+                                <div class="flex gap-4 items-start">
+                                    <span class="bg-purple-500/20 text-purple-400 px-2.5 py-1 rounded-lg font-mono text-xs whitespace-nowrap">Step 1</span>
+                                    <div>
+                                        <p class="text-white font-medium">Cari lagu via Deezer</p>
+                                        <p class="text-gray-400">Metadata, cover art, info artis — catalog lengkap jutaan lagu</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4 items-start">
+                                    <span class="bg-cyan-500/20 text-cyan-400 px-2.5 py-1 rounded-lg font-mono text-xs whitespace-nowrap">Step 2</span>
+                                    <div>
+                                        <p class="text-white font-medium">Temukan video YouTube via Piped</p>
+                                        <p class="text-gray-400">Pencarian akurat dengan title matching & durasi — fallback ke unfiltered search</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4 items-start">
+                                    <span class="bg-red-500/20 text-red-400 px-2.5 py-1 rounded-lg font-mono text-xs whitespace-nowrap">Step 3</span>
+                                    <div>
+                                        <p class="text-white font-medium">Putar audio via YouTube IFrame</p>
+                                        <p class="text-gray-400">Hidden player — kualitas audio YouTube standar (AAC ~128kbps)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Audio Sources -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4">🎵 Sumber Audio</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
+                                    <div class="flex items-center gap-3">
+                                        <span class="bg-purple-500/20 text-purple-400 px-2.5 py-0.5 rounded font-medium">Deezer</span>
+                                        <span class="text-gray-300">Metadata & pencarian</span>
+                                    </div>
+                                    <span class="text-green-400 text-xs">● Aktif</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
+                                    <div class="flex items-center gap-3">
+                                        <span class="bg-red-500/20 text-red-400 px-2.5 py-0.5 rounded font-medium">YouTube</span>
+                                        <span class="text-gray-300">Playback engine (IFrame API)</span>
+                                    </div>
+                                    <span class="text-green-400 text-xs">● Aktif</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
+                                    <div class="flex items-center gap-3">
+                                        <span class="bg-cyan-500/20 text-cyan-400 px-2.5 py-0.5 rounded font-medium">Piped</span>
+                                        <span class="text-gray-300">Pencarian video YouTube</span>
+                                    </div>
+                                    <span class="text-green-400 text-xs">● Aktif</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
+                                    <div class="flex items-center gap-3">
+                                        <span class="bg-pink-500/20 text-pink-400 px-2.5 py-0.5 rounded font-medium">Jamendo</span>
+                                        <span class="text-gray-300">Musik indie — direct stream 320kbps</span>
+                                    </div>
+                                    <span class="text-gray-500 text-xs" id="jamendoStatusBadge">○ Perlu API Key</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Jamendo API Key -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-2">🔑 Jamendo API Key (Opsional)</h3>
+                            <p class="text-sm text-gray-400 mb-4">Untuk akses musik indie berkualitas tinggi (320kbps OGG/MP3). Daftar gratis di <a href="https://devportal.jamendo.com" target="_blank" class="text-primary hover:underline">devportal.jamendo.com</a></p>
+                            <div class="flex gap-3">
+                                <input 
+                                    type="text" 
+                                    id="jamendoKeyInput" 
+                                    placeholder="Masukkan Client ID Jamendo" 
+                                    class="flex-1 bg-dark-100 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary"
+                                >
+                                <button id="saveJamendoKeyBtn" class="bg-primary hover:bg-purple-600 px-6 py-3 rounded-lg transition-colors font-medium">Simpan</button>
+                            </div>
+                            <p id="jamendoStatus" class="text-sm mt-2 text-gray-500"></p>
+                        </div>
+
+                        <!-- Keyboard Shortcuts -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4">⌨️ Keyboard Shortcuts</h3>
+                            <div class="grid grid-cols-2 gap-3 text-sm text-gray-400">
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">Space</kbd> <span>Play / Pause</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">← →</kbd> <span>Seek ±5 detik</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">↑ ↓</kbd> <span>Volume</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">Ctrl+N</kbd> <span>Next track</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">Ctrl+P</kbd> <span>Previous track</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">Esc</kbd> <span>Tutup modal</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Limitations -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-3">⚠️ Keterbatasan</h3>
+                            <ul class="space-y-2 text-sm text-gray-400">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-yellow-400 mt-0.5">•</span>
+                                    <span>Custom equalizer tidak tersedia — YouTube IFrame berjalan di cross-origin sandbox. Gunakan extension browser untuk EQ.</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-yellow-400 mt-0.5">•</span>
+                                    <span>Iklan YouTube mungkin muncul sebelum lagu — gunakan ad blocker (uBlock Origin) untuk pengalaman terbaik.</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-yellow-400 mt-0.5">•</span>
+                                    <span>Beberapa lagu mungkin tidak ditemukan di YouTube — sistem akan mencoba pencarian yang lebih luas secara otomatis.</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Player Bar -->
+    <div id="playerBar" class="fixed bottom-0 left-0 right-0 bg-dark-300 border-t border-gray-800 px-4 py-3 z-50">
+        <div class="flex items-center gap-4 max-w-screen-2xl mx-auto">
+            <!-- Track Info -->
+            <div class="flex items-center gap-3 w-64 shrink-0">
+                <div id="playerCover" class="w-14 h-14 bg-dark-100 rounded-lg flex items-center justify-center overflow-hidden">
+                    <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <p id="playerTitle" class="text-sm font-medium truncate">No track selected</p>
+                    <p id="playerArtist" class="text-xs text-gray-400 truncate">-</p>
+                </div>
+            </div>
+
+            <!-- Player Controls -->
+            <div class="flex-1 flex flex-col items-center gap-2">
+                <div class="flex items-center gap-4">
+                    <button id="shuffleBtn" class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                        </svg>
+                    </button>
+                    <button id="prevBtn" class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                        </svg>
+                    </button>
+                    <button id="playPauseBtn" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-dark-400 hover:scale-105 transition-transform">
+                        <svg id="playIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <svg id="pauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        </svg>
+                    </button>
+                    <button id="nextBtn" class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                        </svg>
+                    </button>
+                    <button id="repeatBtn" class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="w-full flex items-center gap-2 max-w-lg">
+                    <span id="currentTime" class="text-xs text-gray-400 w-10 text-right">0:00</span>
+                    <div class="flex-1 h-1 bg-dark-100 rounded-full cursor-pointer group relative" id="progressBar">
+                        <div id="progressFill" class="h-full bg-primary rounded-full relative" style="width: 0%">
+                            <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </div>
+                    </div>
+                    <span id="duration" class="text-xs text-gray-400 w-10">0:00</span>
+                </div>
+            </div>
+
+            <!-- Volume & Quality -->
+            <div class="flex items-center gap-3 w-48 shrink-0">
+                <span id="qualityBadge" class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">-</span>
+                <button id="volumeBtn" class="text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                </button>
+                <div class="flex-1 h-1 bg-dark-100 rounded-full cursor-pointer group" id="volumeBar">
+                    <div id="volumeFill" class="h-full bg-gray-400 rounded-full" style="width: 80%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Visualizer -->
+        <div id="visualizer" class="absolute bottom-full left-0 right-0 h-8 pointer-events-none">
+            <canvas id="visualizerCanvas" class="w-full h-full"></canvas>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Create Playlist Modal -->
+    <div id="createPlaylistModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-dark-200 rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold mb-4">Create New Playlist</h3>
+            <input 
+                type="text" 
+                id="playlistNameInput" 
+                placeholder="Playlist name" 
+                class="w-full bg-dark-100 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary mb-4"
+            >
+            <div class="flex gap-3 justify-end">
+                <button id="cancelPlaylistBtn" class="px-4 py-2 text-gray-400 hover:text-white transition-colors">Cancel</button>
+                <button id="confirmPlaylistBtn" class="px-6 py-2 bg-primary hover:bg-purple-600 rounded-lg transition-colors">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add to Playlist Modal -->
+    <div id="addToPlaylistModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-dark-200 rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold mb-4">Add to Playlist</h3>
+            <div id="playlistOptions" class="space-y-2 max-h-60 overflow-y-auto">
+                <!-- Playlist options will be rendered here -->
+            </div>
+            <div class="flex gap-3 justify-end mt-4">
+                <button id="cancelAddToPlaylistBtn" class="px-4 py-2 text-gray-400 hover:text-white transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="src/js/api.js"></script>
+    <script src="src/js/auth.js"></script>
+    <script src="src/js/player.js"></script>
+    <script src="src/js/playlist.js"></script>
+    <script src="src/js/search.js"></script>
+    <script src="src/js/ui.js"></script>
+    <script src="src/js/app.js"></script>
+</body>
+</html>

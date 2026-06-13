@@ -1,0 +1,323 @@
+/* Custom Styles for Music Stream App */
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1e1e2e;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4a4a5a;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #5a5a6a;
+}
+
+/* Navigation Button Active State */
+.nav-btn.active {
+    background-color: #1e1e2e;
+    color: #8b5cf6;
+}
+
+.nav-btn.active svg {
+    color: #8b5cf6;
+}
+
+/* Track Card Styles */
+.track-card {
+    transition: all 0.2s ease;
+}
+
+.track-card:hover {
+    background-color: #1e1e2e;
+    transform: translateY(-2px);
+}
+
+.track-card.playing {
+    background-color: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* Quality Badges */
+.quality-badge {
+    font-size: 0.625rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.quality-badge.hd {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.quality-badge.hq {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.quality-badge.std {
+    background-color: rgba(156, 163, 175, 0.2);
+    color: #9ca3af;
+    border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+/* Source Badges */
+.source-badge {
+    font-size: 0.625rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.source-badge.jamendo {
+    background-color: rgba(236, 72, 153, 0.2);
+    color: #f472b6;
+}
+
+.source-badge.deezer {
+    background-color: rgba(168, 85, 247, 0.2);
+    color: #c084fc;
+}
+
+.source-badge.piped {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+.source-badge.archive {
+    background-color: rgba(34, 211, 238, 0.2);
+    color: #22d3ee;
+}
+
+.source-badge.fma {
+    background-color: rgba(251, 146, 60, 0.2);
+    color: #fb923c;
+}
+
+.source-badge.ccmixter {
+    background-color: rgba(34, 211, 238, 0.2);
+    color: #22d3ee;
+}
+
+/* Genre Card */
+.genre-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.genre-card:hover {
+    transform: scale(1.05);
+}
+
+.genre-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.7));
+    z-index: 0;
+}
+
+.genre-card span {
+    position: relative;
+    z-index: 1;
+}
+
+/* Animated Playing Indicator */
+.playing-indicator {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 16px;
+}
+
+.playing-indicator span {
+    width: 3px;
+    background-color: #8b5cf6;
+    border-radius: 2px;
+    animation: sound-wave 0.8s ease infinite;
+}
+
+.playing-indicator span:nth-child(1) { animation-delay: 0s; height: 40%; }
+.playing-indicator span:nth-child(2) { animation-delay: 0.2s; height: 70%; }
+.playing-indicator span:nth-child(3) { animation-delay: 0.4s; height: 50%; }
+.playing-indicator span:nth-child(4) { animation-delay: 0.1s; height: 80%; }
+
+@keyframes sound-wave {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.3); }
+}
+
+/* Skeleton Loading */
+.skeleton-card {
+    background: linear-gradient(90deg, #1e1e2e 25%, #2a2a3e 50%, #1e1e2e 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Toast Notifications */
+.toast {
+    animation: slide-in 0.3s ease-out;
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast.hiding {
+    animation: slide-out 0.3s ease-in forwards;
+}
+
+@keyframes slide-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Visualizer */
+#visualizerCanvas {
+    opacity: 0.6;
+}
+
+/* Progress Bar Hover Effect */
+#progressBar:hover #progressFill {
+    background-color: #a78bfa;
+}
+
+#progressBar:hover .absolute {
+    opacity: 1 !important;
+}
+
+/* Volume Bar */
+#volumeBar:hover #volumeFill {
+    background-color: #8b5cf6;
+}
+
+/* Player Bar Glow Effect When Playing */
+#playerBar.playing {
+    box-shadow: 0 -4px 20px rgba(139, 92, 246, 0.1);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    #sidebar {
+        position: fixed;
+        left: -280px;
+        top: 0;
+        bottom: 0;
+        z-index: 40;
+        transition: left 0.3s ease;
+    }
+
+    #sidebar.open {
+        left: 0;
+    }
+
+    .header-search {
+        padding-left: 3.5rem;
+    }
+}
+
+/* Context Menu */
+.context-menu {
+    position: fixed;
+    background-color: #1e1e2e;
+    border: 1px solid #4a4a5a;
+    border-radius: 8px;
+    padding: 4px;
+    min-width: 180px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    z-index: 100;
+}
+
+.context-menu button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-align: left;
+    font-size: 0.875rem;
+    transition: background-color 0.15s ease;
+}
+
+.context-menu button:hover {
+    background-color: #2a2a3e;
+}
+
+/* Smooth Transitions */
+.view-content {
+    animation: fade-in 0.2s ease-out;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal Backdrop Blur */
+.fixed.bg-black\/50 {
+    backdrop-filter: blur(4px);
+}
+
+/* Drag and Drop Styles */
+.drag-handle {
+    cursor: grab;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+}
+
+.drag-handle:hover {
+    opacity: 1;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.sortable-ghost {
+    opacity: 0.3;
+    background: #8b5cf6 !important;
+    border-radius: 0.75rem;
+}
+
+.sortable-chosen {
+    background: #1e1e2e !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    border-radius: 0.75rem;
+}
+
+.sortable-drag {
+    opacity: 0.9;
+    border-radius: 0.75rem;
+}

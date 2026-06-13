@@ -1,0 +1,19 @@
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# Screenshots (dev only)
+screenshot_*.png
+
+# Test files
+test_*.php
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/

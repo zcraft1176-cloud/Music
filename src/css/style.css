@@ -349,9 +349,9 @@
         left: 0.75rem;
     }
 
-    /* --- Header/search bar: add left padding for hamburger --- */
+    /* --- Header/search bar --- */
     header.bg-dark-200 {
-        padding-left: 3.5rem;
+        padding-left: 1rem;
     }
 
     /* --- Content area: full width, bottom padding for player + nav --- */

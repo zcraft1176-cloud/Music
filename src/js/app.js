@@ -47,18 +47,74 @@ const App = {
      * Setup global event listeners
      */
     setupGlobalListeners() {
-        // Mobile menu toggle
+        // Mobile: sidebar toggle + overlay
         const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenuBtnBottom = document.getElementById('mobileMenuBtnBottom');
         const sidebar = document.getElementById('sidebar');
-        mobileMenuBtn?.addEventListener('click', () => {
-            sidebar?.classList.toggle('open');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        const openSidebar = () => {
+            sidebar?.classList.add('open');
+            sidebarOverlay?.classList.add('active');
+        };
+        const closeSidebar = () => {
+            sidebar?.classList.remove('open');
+            sidebarOverlay?.classList.remove('active');
+        };
+
+        mobileMenuBtn?.addEventListener('click', openSidebar);
+        mobileMenuBtnBottom?.addEventListener('click', openSidebar);
+        sidebarOverlay?.addEventListener('click', closeSidebar);
+
+        // Close sidebar when a nav button inside sidebar is clicked (mobile)
+        sidebar?.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (window.innerWidth < 768) closeSidebar();
+            });
         });
 
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', (e) => {
-            if (window.innerWidth < 768 && sidebar && !sidebar.contains(e.target) && !mobileMenuBtn?.contains(e.target)) {
-                sidebar.classList.remove('open');
-            }
+        // Mobile bottom nav: view switching
+        document.querySelectorAll('.mobile-nav-btn[data-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                if (view) {
+                    // Full view switching logic (mirrors sidebar nav handler in ui.js)
+                    if (view === 'trending') {
+                        Search.loadAllTrending();
+                    } else if (view === 'home') {
+                        UI.showView('home');
+                    } else if (view === 'search') {
+                        UI.showView('search');
+                        document.getElementById('searchInput')?.focus();
+                    } else if (view === 'queue') {
+                        UI.showView('queue');
+                        UI.updateQueueUI();
+                    } else if (view === 'browse') {
+                        UI.showView('browse');
+                        Search.loadGenres();
+                    } else if (view === 'settings') {
+                        UI.showView('settings');
+                        App.loadSettings();
+                    }
+                    // Update active state on bottom nav
+                    document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    // Also sync sidebar nav
+                    document.querySelectorAll('#sidebar .nav-btn').forEach(b => {
+                        b.classList.toggle('active', b.dataset.view === view);
+                    });
+                }
+            });
+        });
+
+        // Sync bottom nav when sidebar nav is clicked
+        sidebar?.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                document.querySelectorAll('.mobile-nav-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.view === view);
+                });
+            });
         });
 
         // Close modals on escape key

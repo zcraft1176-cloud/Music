@@ -227,26 +227,6 @@
     box-shadow: 0 -4px 20px rgba(139, 92, 246, 0.1);
 }
 
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    #sidebar {
-        position: fixed;
-        left: -280px;
-        top: 0;
-        bottom: 0;
-        z-index: 40;
-        transition: left 0.3s ease;
-    }
-
-    #sidebar.open {
-        left: 0;
-    }
-
-    .header-search {
-        padding-left: 3.5rem;
-    }
-}
-
 /* Context Menu */
 .context-menu {
     position: fixed;
@@ -320,4 +300,236 @@
 .sortable-drag {
     opacity: 0.9;
     border-radius: 0.75rem;
+}
+
+/* ========================================
+   MOBILE OVERLAY
+   ======================================== */
+#sidebarOverlay {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+#sidebarOverlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ========================================
+   MOBILE BOTTOM NAV
+   ======================================== */
+.mobile-bottom-nav {
+    display: none;
+}
+
+/* ========================================
+   RESPONSIVE: MOBILE (<768px)
+   ======================================== */
+@media (max-width: 767px) {
+    /* --- Sidebar: off-canvas drawer --- */
+    #sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 45;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* --- Mobile hamburger adjustments --- */
+    #mobileMenuBtn {
+        top: 0.75rem;
+        left: 0.75rem;
+    }
+
+    /* --- Header/search bar: add left padding for hamburger --- */
+    header.bg-dark-200 {
+        padding-left: 3.5rem;
+    }
+
+    /* --- Content area: full width, bottom padding for player + nav --- */
+    #contentArea {
+        padding: 1rem;
+        padding-bottom: 10rem; /* space for player bar + bottom nav */
+    }
+
+    /* --- Player Bar: stacked mobile layout --- */
+    #playerBar {
+        bottom: 56px; /* above bottom nav */
+        padding: 0.5rem 0.75rem;
+    }
+
+    #playerBar > div {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* Track info row */
+    #playerBar .w-64 {
+        width: 100%;
+        flex-shrink: 0;
+    }
+
+    #playerBar .w-64 > div:first-child {
+        width: 40px;
+        height: 40px;
+    }
+
+    /* Controls: full width, centered */
+    #playerBar .flex-1.flex.flex-col {
+        width: 100%;
+        order: 2;
+    }
+
+    #playerBar .flex-1.flex.flex-col > div:first-child {
+        gap: 1rem;
+    }
+
+    /* Progress bar full width */
+    #playerBar .max-w-lg {
+        max-width: 100%;
+    }
+
+    /* Hide volume section on mobile */
+    #playerBar .w-48 {
+        display: none;
+    }
+
+    /* --- Bottom Navigation Bar --- */
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 56px;
+        background-color: #181825;
+        border-top: 1px solid #2a2a3e;
+        z-index: 50;
+        justify-content: space-around;
+        align-items: center;
+        padding: 0 0.5rem;
+    }
+
+    .mobile-bottom-nav button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        color: #6b7280;
+        font-size: 0.625rem;
+        transition: color 0.2s;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-bottom-nav button.active {
+        color: #8b5cf6;
+    }
+
+    .mobile-bottom-nav button svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    /* --- Track cards: smaller on mobile --- */
+    .track-card:hover {
+        transform: none; /* disable hover lift on touch */
+    }
+
+    /* --- Genre grid: 2 columns on mobile --- */
+    .genre-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* --- Settings: full width --- */
+    #settingsView .max-w-2xl {
+        max-width: 100%;
+    }
+
+    /* --- Modals: edge-to-edge on mobile --- */
+    .fixed.bg-black\/50 > div {
+        margin: 0.5rem;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    /* --- Toast: full width on mobile --- */
+    #toastContainer {
+        left: 1rem;
+        right: 1rem;
+    }
+
+    #toastContainer .toast {
+        width: 100%;
+    }
+
+    /* --- Hide visualizer on mobile --- */
+    #visualizer {
+        display: none;
+    }
+}
+
+/* ========================================
+   RESPONSIVE: SMALL MOBILE (<480px)
+   ======================================== */
+@media (max-width: 479px) {
+    /* Even smaller adjustments */
+    #contentArea {
+        padding: 0.75rem;
+        padding-bottom: 10rem;
+    }
+
+    /* Player: compact track info */
+    #playerBar .w-64 {
+        gap: 0.5rem;
+    }
+
+    #playerBar .w-64 .min-w-0 p:first-child {
+        font-size: 0.75rem;
+    }
+
+    /* Compact track rows */
+    .track-card {
+        padding: 0.5rem !important;
+        gap: 0.5rem !important;
+    }
+
+    /* Hide quality/source badges on very small screens */
+    .quality-badge,
+    .source-badge {
+        display: none;
+    }
+}
+
+/* ========================================
+   RESPONSIVE: TABLET (768px - 1024px)
+   ======================================== */
+@media (min-width: 768px) and (max-width: 1024px) {
+    /* Narrower sidebar on tablet */
+    #sidebar {
+        width: 220px;
+    }
+
+    /* Slightly smaller content padding */
+    #contentArea {
+        padding: 1rem;
+    }
+
+    /* Player bar: slightly less track info width */
+    #playerBar .w-64 {
+        width: 180px;
+    }
+
+    #playerBar .w-48 {
+        width: 140px;
+    }
 }

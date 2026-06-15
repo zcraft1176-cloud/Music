@@ -252,6 +252,7 @@ const UI = {
      * Render genre detail results into genreView
      */
     renderGenreResults(tracks, genreName, hasMore = false) {
+        this._renderedTracks = tracks;
         const container = document.getElementById('genreContent');
         if (!container) return;
 
@@ -296,6 +297,8 @@ const UI = {
      * Append more tracks to genre view (for Load More)
      */
     appendGenreTracks(newTracks, startIndex, hasMore) {
+        // Update rendered tracks to include all loaded tracks
+        this._renderedTracks = Search._genreState.allTracks;
         const tracksList = document.getElementById('genreTracksList');
         if (!tracksList || newTracks.length === 0) return;
 
@@ -577,6 +580,8 @@ const UI = {
                 return this.getTracksFromContainer('searchResults');
             case 'trending':
                 return this.getTracksFromContainer('trendingContent');
+            case 'genre':
+                return Search._genreState?.allTracks || this._renderedTracks || [];
             case 'browse':
                 return this.getTracksFromContainer('browseContent');
             case 'queue':

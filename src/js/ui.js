@@ -251,7 +251,7 @@ const UI = {
     /**
      * Render genre detail results into genreView
      */
-    renderGenreResults(tracks, genreName) {
+    renderGenreResults(tracks, genreName, hasMore = false) {
         const container = document.getElementById('genreContent');
         if (!container) return;
 
@@ -263,14 +263,72 @@ const UI = {
             return;
         }
 
-        container.innerHTML = tracks.map((track, index) => this.renderTrackRow(track, index)).join('');
+        const trackRows = tracks.map((track, index) => this.renderTrackRow(track, index)).join('');
+        const loadMoreBtn = hasMore ? `
+            <div id="loadMoreContainer" class="text-center py-6">
+                <button id="loadMoreGenreBtn" class="px-6 py-3 bg-dark-100 hover:bg-primary/20 text-gray-300 hover:text-white rounded-full transition-all duration-200 font-medium border border-dark-100 hover:border-primary/40">
+                    <span id="loadMoreText">Load More</span>
+                    <span id="loadMoreSpinner" class="hidden">
+                        <svg class="animate-spin inline w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                </button>
+            </div>` : '';
+
+        container.innerHTML = `<div id="genreTracksList">${trackRows}</div>${loadMoreBtn}`;
         this.attachTrackListeners(container);
+
+        // Load More button handler
+        document.getElementById('loadMoreGenreBtn')?.addEventListener('click', () => {
+            Search.loadMoreGenre();
+        });
 
         // Back button handler
         const backBtn = document.getElementById('genreBackBtn');
         backBtn?.addEventListener('click', () => {
             this.showView('home');
         });
+    },
+
+    /**
+     * Append more tracks to genre view (for Load More)
+     */
+    appendGenreTracks(newTracks, startIndex, hasMore) {
+        const tracksList = document.getElementById('genreTracksList');
+        if (!tracksList || newTracks.length === 0) return;
+
+        const newRows = newTracks.map((track, i) => this.renderTrackRow(track, startIndex + i)).join('');
+        tracksList.insertAdjacentHTML('beforeend', newRows);
+        this.attachTrackListeners(tracksList);
+
+        // Update or hide Load More button
+        if (!hasMore) {
+            this.hideLoadMoreButton();
+        }
+    },
+
+    /**
+     * Show/hide loading state on Load More button
+     */
+    showLoadMoreLoading(loading) {
+        const text = document.getElementById('loadMoreText');
+        const spinner = document.getElementById('loadMoreSpinner');
+        const btn = document.getElementById('loadMoreGenreBtn');
+        if (text) text.textContent = loading ? 'Loading...' : 'Load More';
+        if (spinner) spinner.classList.toggle('hidden', !loading);
+        if (btn) btn.disabled = loading;
+    },
+
+    /**
+     * Hide Load More button (no more tracks)
+     */
+    hideLoadMoreButton() {
+        const container = document.getElementById('loadMoreContainer');
+        if (container) {
+            container.innerHTML = '<p class="text-gray-500 text-sm py-4">All tracks loaded</p>';
+        }
     },
 
     /**

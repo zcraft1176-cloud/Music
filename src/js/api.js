@@ -159,11 +159,11 @@ const MusicAPI = {
     },
 
     async getByGenre(genre, options = {}) {
-        const { limit = 50 } = options;
+        const { limit = 50, offset = 0 } = options;
         const genreObj = typeof genre === 'object' ? genre : this.getGenres().find(g => g.name.toLowerCase() === genre.toLowerCase());
         const genreName = genreObj?.name || genre;
         const genreId = genreObj?.id;
-        const cacheKey = `genre:${genreName}:${limit}`;
+        const cacheKey = `genre:${genreName}:${limit}:${offset}`;
         const cached = this.getCached(cacheKey);
         if (cached) return cached;
 
@@ -171,7 +171,7 @@ const MusicAPI = {
         try {
             // Method 1: Deezer genre chart endpoint (best results)
             if (genreId) {
-                const chartUrl = `${this.config.deezer.baseUrl}/chart/${genreId}/tracks?limit=${limit}`;
+                const chartUrl = `${this.config.deezer.baseUrl}/chart/${genreId}/tracks?limit=${limit}&index=${offset}`;
                 const proxyUrl = this.getProxyUrl(chartUrl);
                 const res = await fetch(proxyUrl);
                 const data = await res.json();

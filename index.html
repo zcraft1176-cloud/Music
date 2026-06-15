@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Music Stream - Free High Quality Music</title>
+    <title>MsicFree - Free High Quality Music</title>
+    <link rel="icon" type="image/png" href="logo.png">
     <link rel="stylesheet" href="dist/css/output.css">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -27,10 +28,13 @@
         <aside id="sidebar" class="w-64 bg-dark-300 flex flex-col border-r border-gray-800 shrink-0">
             <!-- Logo -->
             <div class="p-6 border-b border-gray-800">
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                    Music Stream
-                </h1>
-                <p class="text-xs text-gray-400 mt-1">Free High Quality Music</p>
+                <div class="flex items-center gap-3">
+                    <img src="logo.png" alt="MsicFree" class="w-9 h-9">
+                    <div>
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">MsicFree</h1>
+                        <p class="text-[10px] text-gray-400">Free High Quality Music</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Auth Area -->
@@ -252,13 +256,11 @@
                         <!-- About -->
                         <div class="bg-dark-200 rounded-xl p-6">
                             <div class="flex items-center gap-4 mb-4">
-                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                                    <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                                    </svg>
+                                <div class="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center">
+                                    <img src="logo.png" alt="MsicFree" class="w-full h-full object-cover">
                                 </div>
                                 <div>
-                                    <h3 class="text-lg font-bold">Music Stream</h3>
+                                    <h3 class="text-lg font-bold">MsicFree</h3>
                                     <p class="text-sm text-gray-400">v2.0 — YouTube IFrame Engine</p>
                                 </div>
                             </div>

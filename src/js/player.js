@@ -991,9 +991,9 @@ const Player = {
 
         // Update document title
         if (this.currentTrack && this.isPlaying) {
-            document.title = `${this.currentTrack.title} - ${this.currentTrack.artist} | Music Stream`;
+            document.title = `${this.currentTrack.title} - ${this.currentTrack.artist} | MsicFree`;
         } else {
-            document.title = 'Music Stream - Free High Quality Music';
+            document.title = 'MsicFree - Free High Quality Music';
         }
 
         // Update queue count

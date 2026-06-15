@@ -8,7 +8,7 @@ const App = {
      * Initialize the application
      */
     async init() {
-        console.log('Music Stream App initializing...');
+        console.log('MsicFree App initializing...');
 
         try {
             // Initialize modules in order
@@ -24,8 +24,8 @@ const App = {
             // Setup global event listeners
             this.setupGlobalListeners();
 
-            console.log('Music Stream App ready!');
-            UI.showToast('Welcome to Music Stream!', 'success');
+            console.log('MsicFree App ready!');
+            UI.showToast('Welcome to MsicFree!', 'success');
         } catch (error) {
             console.error('App initialization error:', error);
             UI.showToast('Failed to initialize app. Please refresh.', 'error');
@@ -228,65 +228,11 @@ const App = {
     setupMobileGestures() {
         if (window.innerWidth >= 768) return; // desktop — skip
 
-        const sidebar = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
         const playerBar = document.getElementById('playerBar');
         const expandedPlayer = document.getElementById('mobilePlayerExpanded');
-        const contentArea = document.getElementById('contentArea');
 
         const SWIPE_THRESHOLD = 50;   // px minimum to trigger
         const VELOCITY_THRESHOLD = 0.3; // px/ms — fast flick triggers even below threshold
-
-        // =============================================
-        // 1. Swipe RIGHT on content → open sidebar
-        // =============================================
-        if (contentArea && sidebar) {
-            let startX = 0, startY = 0, startTime = 0, tracking = false;
-
-            contentArea.addEventListener('touchstart', (e) => {
-                const touch = e.touches[0];
-                // Only trigger from left edge (first 30px)
-                if (touch.clientX > 30) return;
-                startX = touch.clientX;
-                startY = touch.clientY;
-                startTime = Date.now();
-                tracking = true;
-                sidebar.style.transition = 'none';
-            }, { passive: true });
-
-            contentArea.addEventListener('touchmove', (e) => {
-                if (!tracking) return;
-                const dx = e.touches[0].clientX - startX;
-                const dy = Math.abs(e.touches[0].clientY - startY);
-                // If vertical scroll dominates, cancel gesture
-                if (dy > Math.abs(dx)) { tracking = false; sidebar.style.transition = ''; return; }
-                if (dx < 0) return;
-                // Follow finger: sidebar slides from -280 to 0
-                const progress = Math.min(dx / 280, 1);
-                sidebar.style.transform = `translateX(${-280 + (progress * 280)}px)`;
-                if (sidebarOverlay) {
-                    sidebarOverlay.style.opacity = progress * 1;
-                    sidebarOverlay.style.pointerEvents = progress > 0.1 ? 'auto' : 'none';
-                }
-            }, { passive: true });
-
-            contentArea.addEventListener('touchend', (e) => {
-                if (!tracking) return;
-                tracking = false;
-                const dx = e.changedTouches[0].clientX - startX;
-                const elapsed = Date.now() - startTime;
-                const velocity = dx / elapsed;
-
-                sidebar.style.transition = '';
-                sidebar.style.transform = '';
-                if (sidebarOverlay) { sidebarOverlay.style.opacity = ''; sidebarOverlay.style.pointerEvents = ''; }
-
-                if (dx > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
-                    sidebar.classList.add('open');
-                    sidebarOverlay?.classList.add('active');
-                }
-            }, { passive: true });
-        }
 
         // =============================================
         // 2. Swipe UP on player bar → expand player

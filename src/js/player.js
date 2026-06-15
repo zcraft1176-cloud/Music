@@ -51,6 +51,9 @@ const Player = {
             nextBtn: document.getElementById('nextBtn'),
             shuffleBtn: document.getElementById('shuffleBtn'),
             repeatBtn: document.getElementById('repeatBtn'),
+            repeatIconNone: document.getElementById('repeatIconNone'),
+            repeatIconAll: document.getElementById('repeatIconAll'),
+            repeatIconOne: document.getElementById('repeatIconOne'),
             progressBar: document.getElementById('progressBar'),
             progressFill: document.getElementById('progressFill'),
             currentTime: document.getElementById('currentTime'),
@@ -58,13 +61,46 @@ const Player = {
             volumeBar: document.getElementById('volumeBar'),
             volumeFill: document.getElementById('volumeFill'),
             volumeBtn: document.getElementById('volumeBtn'),
+            volumeIconHigh: document.getElementById('volumeIconHigh'),
+            volumeIconLow: document.getElementById('volumeIconLow'),
+            volumeIconMute: document.getElementById('volumeIconMute'),
+            volumePercent: document.getElementById('volumePercent'),
             playerTitle: document.getElementById('playerTitle'),
             playerArtist: document.getElementById('playerArtist'),
             playerCover: document.getElementById('playerCover'),
             playerBar: document.getElementById('playerBar'),
             qualityBadge: document.getElementById('qualityBadge'),
             queueCount: document.getElementById('queueCount'),
-            visualizerCanvas: document.getElementById('visualizerCanvas')
+            visualizerCanvas: document.getElementById('visualizerCanvas'),
+            // Mobile mini-bar elements
+            mobilePlayPauseBtn: document.getElementById('mobilePlayPauseBtn'),
+            mobilePlayIcon: document.getElementById('mobilePlayIcon'),
+            mobilePauseIcon: document.getElementById('mobilePauseIcon'),
+            mobilePrevBtn: document.getElementById('mobilePrevBtn'),
+            mobileNextBtn: document.getElementById('mobileNextBtn'),
+            mobileCurrentTime: document.getElementById('mobileCurrentTime'),
+            mobileDuration: document.getElementById('mobileDuration'),
+            // Mobile expanded player elements
+            mobilePlayerExpanded: document.getElementById('mobilePlayerExpanded'),
+            mobilePlayerCollapse: document.getElementById('mobilePlayerCollapse'),
+            mobilePlayerCoverLarge: document.getElementById('mobilePlayerCoverLarge'),
+            mobileExpTitle: document.getElementById('mobileExpTitle'),
+            mobileExpArtist: document.getElementById('mobileExpArtist'),
+            mobileExpProgressBar: document.getElementById('mobileExpProgressBar'),
+            mobileExpProgressFill: document.getElementById('mobileExpProgressFill'),
+            mobileExpCurrentTime: document.getElementById('mobileExpCurrentTime'),
+            mobileExpDuration: document.getElementById('mobileExpDuration'),
+            mobileExpPlayPause: document.getElementById('mobileExpPlayPause'),
+            mobileExpPlayIcon: document.getElementById('mobileExpPlayIcon'),
+            mobileExpPauseIcon: document.getElementById('mobileExpPauseIcon'),
+            mobileExpPrev: document.getElementById('mobileExpPrev'),
+            mobileExpNext: document.getElementById('mobileExpNext'),
+            mobileExpShuffle: document.getElementById('mobileExpShuffle'),
+            mobileExpRepeat: document.getElementById('mobileExpRepeat'),
+            mobileExpRepeatNone: document.getElementById('mobileExpRepeatNone'),
+            mobileExpRepeatAll: document.getElementById('mobileExpRepeatAll'),
+            mobileExpRepeatOne: document.getElementById('mobileExpRepeatOne'),
+            mobileExpQualityBadge: document.getElementById('mobileExpQualityBadge')
         };
 
         // Setup event listeners
@@ -148,9 +184,19 @@ const Player = {
                 const dur = this.ytPlayer.getDuration() || 0;
                 if (dur > 0) {
                     const pct = (cur / dur) * 100;
+                    const timeStr = this.formatTime(cur);
+                    const durStr = this.formatTime(dur);
+                    // Desktop
                     if (this.elements.progressFill) this.elements.progressFill.style.width = `${pct}%`;
-                    if (this.elements.currentTime) this.elements.currentTime.textContent = this.formatTime(cur);
-                    if (this.elements.duration) this.elements.duration.textContent = this.formatTime(dur);
+                    if (this.elements.currentTime) this.elements.currentTime.textContent = timeStr;
+                    if (this.elements.duration) this.elements.duration.textContent = durStr;
+                    // Mobile mini-bar
+                    if (this.elements.mobileCurrentTime) this.elements.mobileCurrentTime.textContent = timeStr;
+                    if (this.elements.mobileDuration) this.elements.mobileDuration.textContent = durStr;
+                    // Mobile expanded player
+                    if (this.elements.mobileExpProgressFill) this.elements.mobileExpProgressFill.style.width = `${pct}%`;
+                    if (this.elements.mobileExpCurrentTime) this.elements.mobileExpCurrentTime.textContent = timeStr;
+                    if (this.elements.mobileExpDuration) this.elements.mobileExpDuration.textContent = durStr;
                 }
             } catch(e) {}
         }, 500);
@@ -180,11 +226,138 @@ const Player = {
         // Progress bar click
         this.elements.progressBar?.addEventListener('click', (e) => this.seek(e));
 
-        // Volume bar click
-        this.elements.volumeBar?.addEventListener('click', (e) => this.setVolume(e));
+        // Volume bar drag & click
+        this.elements.volumeBar?.addEventListener('mousedown', (e) => {
+            this.setVolume(e);
+            this._volumeDragging = true;
+            const onMove = (ev) => { if (this._volumeDragging) this.setVolume(ev); };
+            const onUp = () => { this._volumeDragging = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+        // Touch support for mobile
+        this.elements.volumeBar?.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            this.setVolume(touch);
+            const onTouchMove = (ev) => { ev.preventDefault(); this.setVolume(ev.touches[0]); };
+            const onTouchEnd = () => { this.elements.volumeBar.removeEventListener('touchmove', onTouchMove); this.elements.volumeBar.removeEventListener('touchend', onTouchEnd); };
+            this.elements.volumeBar.addEventListener('touchmove', onTouchMove, { passive: false });
+            this.elements.volumeBar.addEventListener('touchend', onTouchEnd);
+        }, { passive: false });
 
         // Volume button (mute toggle)
         this.elements.volumeBtn?.addEventListener('click', () => this.toggleMute());
+
+        // Mobile inline controls (mini-bar)
+        this.elements.mobilePlayPauseBtn?.addEventListener('click', (e) => { e.stopPropagation(); this.togglePlayPause(); });
+        this.elements.mobilePrevBtn?.addEventListener('click', (e) => { e.stopPropagation(); this.prev(); });
+        this.elements.mobileNextBtn?.addEventListener('click', (e) => { e.stopPropagation(); this.next(); });
+
+        // Mini-bar: tap track info area to expand player
+        const trackInfoArea = this.elements.playerBar?.querySelector('.w-56');
+        trackInfoArea?.addEventListener('click', (e) => {
+            if (window.innerWidth < 768 && !e.target.closest('button')) {
+                this.expandMobilePlayer();
+            }
+        });
+
+        // Expanded mobile player controls
+        this.elements.mobilePlayerCollapse?.addEventListener('click', () => this.collapseMobilePlayer());
+        this.elements.mobileExpPlayPause?.addEventListener('click', () => this.togglePlayPause());
+        this.elements.mobileExpPrev?.addEventListener('click', () => this.prev());
+        this.elements.mobileExpNext?.addEventListener('click', () => this.next());
+        this.elements.mobileExpShuffle?.addEventListener('click', () => this.toggleShuffle());
+        this.elements.mobileExpRepeat?.addEventListener('click', () => this.toggleRepeat());
+
+        // Expanded progress bar seek
+        this.elements.mobileExpProgressBar?.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this._seekFromMobileExp(e.touches[0]);
+            const onMove = (ev) => { ev.preventDefault(); this._seekFromMobileExp(ev.touches[0]); };
+            const onEnd = () => { this.elements.mobileExpProgressBar.removeEventListener('touchmove', onMove); this.elements.mobileExpProgressBar.removeEventListener('touchend', onEnd); };
+            this.elements.mobileExpProgressBar.addEventListener('touchmove', onMove, { passive: false });
+            this.elements.mobileExpProgressBar.addEventListener('touchend', onEnd);
+        }, { passive: false });
+        this.elements.mobileExpProgressBar?.addEventListener('click', (e) => this._seekFromMobileExp(e));
+    },
+
+    /**
+     * Expand mobile full-screen player
+     */
+    expandMobilePlayer() {
+        this.elements.mobilePlayerExpanded?.classList.add('open');
+        this.syncExpandedPlayer();
+    },
+
+    /**
+     * Collapse mobile full-screen player
+     */
+    collapseMobilePlayer() {
+        this.elements.mobilePlayerExpanded?.classList.remove('open');
+    },
+
+    /**
+     * Sync expanded player UI with current state
+     */
+    syncExpandedPlayer() {
+        if (!this.elements.mobileExpTitle) return;
+
+        // Track info
+        if (this.currentTrack) {
+            this.elements.mobileExpTitle.textContent = this.currentTrack.title;
+            this.elements.mobileExpArtist.textContent = this.currentTrack.artist;
+            if (this.currentTrack.cover) {
+                this.elements.mobilePlayerCoverLarge.innerHTML = `<img src="${this.currentTrack.cover}" alt="Cover" onerror="this.parentElement.innerHTML='<svg class=\\'w-16 h-16 text-gray-600\\' fill=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path d=\\'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z\\'/></svg>'">`;
+            }
+        }
+
+        // Quality badge
+        if (this.elements.mobileExpQualityBadge && this.elements.qualityBadge) {
+            this.elements.mobileExpQualityBadge.textContent = this.elements.qualityBadge.textContent;
+        }
+
+        // Shuffle state
+        this.elements.mobileExpShuffle?.classList.toggle('text-primary', this.isShuffle);
+        this.elements.mobileExpShuffle?.classList.toggle('text-gray-400', !this.isShuffle);
+
+        // Repeat state
+        this._syncExpandedRepeatIcons();
+    },
+
+    /**
+     * Seek from expanded mobile progress bar
+     */
+    _seekFromMobileExp(e) {
+        const bar = this.elements.mobileExpProgressBar;
+        if (!bar) return;
+        const rect = bar.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        if (this._source === 'youtube' && this.ytPlayer && this.ytReady) {
+            const dur = this.ytPlayer.getDuration();
+            if (dur > 0) this.ytPlayer.seekTo(pct * dur, true);
+        } else if (this.audio.duration) {
+            this.audio.currentTime = pct * this.audio.duration;
+        }
+    },
+
+    /**
+     * Sync repeat icons on the expanded player
+     */
+    _syncExpandedRepeatIcons() {
+        const none = this.elements.mobileExpRepeatNone;
+        const all = this.elements.mobileExpRepeatAll;
+        const one = this.elements.mobileExpRepeatOne;
+        if (none && all && one) {
+            none.classList.add('hidden');
+            all.classList.add('hidden');
+            one.classList.add('hidden');
+            if (this.repeatMode === 'none') none.classList.remove('hidden');
+            else if (this.repeatMode === 'all') all.classList.remove('hidden');
+            else one.classList.remove('hidden');
+        }
+        this.elements.mobileExpRepeat?.classList.toggle('text-primary', this.repeatMode !== 'none');
+        this.elements.mobileExpRepeat?.classList.toggle('text-gray-400', this.repeatMode === 'none');
     },
 
     /**
@@ -647,6 +820,9 @@ const Player = {
         this.isShuffle = !this.isShuffle;
         this.elements.shuffleBtn?.classList.toggle('text-primary', this.isShuffle);
         this.elements.shuffleBtn?.classList.toggle('text-gray-400', !this.isShuffle);
+        // Sync expanded player
+        this.elements.mobileExpShuffle?.classList.toggle('text-primary', this.isShuffle);
+        this.elements.mobileExpShuffle?.classList.toggle('text-gray-400', !this.isShuffle);
         this.saveState();
         UI.showToast(`Shuffle ${this.isShuffle ? 'on' : 'off'}`, 'info');
     },
@@ -659,9 +835,8 @@ const Player = {
         const currentIndex = modes.indexOf(this.repeatMode);
         this.repeatMode = modes[(currentIndex + 1) % modes.length];
 
-        // Update UI
-        this.elements.repeatBtn?.classList.toggle('text-primary', this.repeatMode !== 'none');
-        this.elements.repeatBtn?.classList.toggle('text-gray-400', this.repeatMode === 'none');
+        // Update UI - switch icons
+        this.updateRepeatIcons();
         
         this.saveState();
         const labels = { none: 'Repeat off', all: 'Repeat all', one: 'Repeat one' };
@@ -720,11 +895,23 @@ const Player = {
         if (!this.audio.duration) return;
 
         const percent = (this.audio.currentTime / this.audio.duration) * 100;
+        const timeStr = this.formatTime(this.audio.currentTime);
         if (this.elements.progressFill) {
             this.elements.progressFill.style.width = `${percent}%`;
         }
         if (this.elements.currentTime) {
-            this.elements.currentTime.textContent = this.formatTime(this.audio.currentTime);
+            this.elements.currentTime.textContent = timeStr;
+        }
+        // Mobile mini-bar time
+        if (this.elements.mobileCurrentTime) {
+            this.elements.mobileCurrentTime.textContent = timeStr;
+        }
+        // Mobile expanded player
+        if (this.elements.mobileExpProgressFill) {
+            this.elements.mobileExpProgressFill.style.width = `${percent}%`;
+        }
+        if (this.elements.mobileExpCurrentTime) {
+            this.elements.mobileExpCurrentTime.textContent = timeStr;
         }
     },
 
@@ -732,8 +919,17 @@ const Player = {
      * Update duration display
      */
     updateDuration() {
+        const durStr = this.formatTime(this.audio.duration);
         if (this.elements.duration) {
-            this.elements.duration.textContent = this.formatTime(this.audio.duration);
+            this.elements.duration.textContent = durStr;
+        }
+        // Mobile mini-bar
+        if (this.elements.mobileDuration) {
+            this.elements.mobileDuration.textContent = durStr;
+        }
+        // Mobile expanded player
+        if (this.elements.mobileExpDuration) {
+            this.elements.mobileExpDuration.textContent = durStr;
         }
     },
 
@@ -741,13 +937,21 @@ const Player = {
      * Update all UI elements
      */
     updateUI() {
-        // Play/Pause button
+        // Play/Pause button (desktop + mobile mini-bar + expanded)
         if (this.isPlaying) {
             this.elements.playIcon?.classList.add('hidden');
             this.elements.pauseIcon?.classList.remove('hidden');
+            this.elements.mobilePlayIcon?.classList.add('hidden');
+            this.elements.mobilePauseIcon?.classList.remove('hidden');
+            this.elements.mobileExpPlayIcon?.classList.add('hidden');
+            this.elements.mobileExpPauseIcon?.classList.remove('hidden');
         } else {
             this.elements.playIcon?.classList.remove('hidden');
             this.elements.pauseIcon?.classList.add('hidden');
+            this.elements.mobilePlayIcon?.classList.remove('hidden');
+            this.elements.mobilePauseIcon?.classList.add('hidden');
+            this.elements.mobileExpPlayIcon?.classList.remove('hidden');
+            this.elements.mobileExpPauseIcon?.classList.add('hidden');
         }
 
         // Track info
@@ -758,15 +962,30 @@ const Player = {
             if (this.elements.playerArtist) {
                 this.elements.playerArtist.textContent = this.currentTrack.artist;
             }
+            // Sync expanded player track info
+            if (this.elements.mobileExpTitle) {
+                this.elements.mobileExpTitle.textContent = this.currentTrack.title;
+            }
+            if (this.elements.mobileExpArtist) {
+                this.elements.mobileExpArtist.textContent = this.currentTrack.artist;
+            }
             if (this.elements.playerCover) {
                 this.elements.playerCover.innerHTML = `
                     <img src="${this.currentTrack.cover}" alt="${this.currentTrack.title}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<svg class=\\'w-6 h-6 text-gray-600\\' fill=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path d=\\'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z\\'/></svg>'">
                 `;
             }
+            // Sync expanded player cover
+            if (this.elements.mobilePlayerCoverLarge) {
+                this.elements.mobilePlayerCoverLarge.innerHTML = `<img src="${this.currentTrack.cover}" alt="${this.currentTrack.title}" onerror="this.parentElement.innerHTML='<svg class=\\'w-16 h-16 text-gray-600\\' fill=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path d=\\'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z\\'/></svg>'">`;
+            }
             if (this.elements.qualityBadge) {
                 const quality = MusicAPI.getQualityLabel(this.currentTrack.bitrate);
                 this.elements.qualityBadge.textContent = quality.label;
                 this.elements.qualityBadge.className = `text-xs px-2 py-0.5 rounded quality-badge ${quality.class}`;
+                // Sync expanded quality
+                if (this.elements.mobileExpQualityBadge) {
+                    this.elements.mobileExpQualityBadge.textContent = quality.label;
+                }
             }
         }
 
@@ -786,9 +1005,58 @@ const Player = {
      */
     updateVolumeUI() {
         const displayVolume = this.isMuted ? 0 : this.volume;
+        const pct = Math.round(displayVolume * 100);
         if (this.elements.volumeFill) {
-            this.elements.volumeFill.style.width = `${displayVolume * 100}%`;
+            this.elements.volumeFill.style.width = `${pct}%`;
         }
+        // Update percentage label
+        if (this.elements.volumePercent) {
+            this.elements.volumePercent.textContent = `${pct}%`;
+        }
+        // Update volume icon based on level
+        const high = this.elements.volumeIconHigh;
+        const low = this.elements.volumeIconLow;
+        const mute = this.elements.volumeIconMute;
+        if (high && low && mute) {
+            high.classList.add('hidden');
+            low.classList.add('hidden');
+            mute.classList.add('hidden');
+            if (this.isMuted || displayVolume === 0) {
+                mute.classList.remove('hidden');
+            } else if (displayVolume < 0.5) {
+                low.classList.remove('hidden');
+            } else {
+                high.classList.remove('hidden');
+            }
+        }
+    },
+
+    /**
+     * Update repeat button icons
+     */
+    updateRepeatIcons() {
+        const none = this.elements.repeatIconNone;
+        const all = this.elements.repeatIconAll;
+        const one = this.elements.repeatIconOne;
+        if (none && all && one) {
+            none.classList.add('hidden');
+            all.classList.add('hidden');
+            one.classList.add('hidden');
+            if (this.repeatMode === 'none') {
+                none.classList.remove('hidden');
+            } else if (this.repeatMode === 'all') {
+                all.classList.remove('hidden');
+            } else {
+                one.classList.remove('hidden');
+            }
+        }
+        this.elements.repeatBtn?.classList.toggle('text-primary', this.repeatMode !== 'none');
+        this.elements.repeatBtn?.classList.toggle('text-gray-400', this.repeatMode === 'none');
+        // Update title
+        const titles = { none: 'Repeat off', all: 'Repeat all', one: 'Repeat one' };
+        if (this.elements.repeatBtn) this.elements.repeatBtn.title = titles[this.repeatMode] || 'Repeat off';
+        // Sync expanded player
+        this._syncExpandedRepeatIcons();
     },
 
     /**
@@ -861,8 +1129,7 @@ const Player = {
                 // Restore shuffle/repeat UI
                 this.elements.shuffleBtn?.classList.toggle('text-primary', this.isShuffle);
                 this.elements.shuffleBtn?.classList.toggle('text-gray-400', !this.isShuffle);
-                this.elements.repeatBtn?.classList.toggle('text-primary', this.repeatMode !== 'none');
-                this.elements.repeatBtn?.classList.toggle('text-gray-400', this.repeatMode === 'none');
+                this.updateRepeatIcons();
 
                 // Restore current track if exists
                 if (this.currentIndex >= 0 && this.queue[this.currentIndex]) {

@@ -329,6 +329,179 @@
 }
 
 /* ========================================
+   EXPANDED MOBILE PLAYER (Full-Screen)
+   ======================================== */
+.mobile-player-expanded {
+    display: none; /* hidden on desktop */
+}
+
+@media (max-width: 767px) {
+    .mobile-player-expanded {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #16162a 100%);
+        transform: translateY(100%);
+        transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        will-change: transform;
+    }
+
+    .mobile-player-expanded.open {
+        transform: translateY(0);
+    }
+
+    .mobile-player-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px 24px 32px;
+        min-height: 100%;
+    }
+
+    /* --- Collapse Handle --- */
+    .mobile-player-handle {
+        width: 48px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+        margin-bottom: 8px;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* --- Large Cover Art --- */
+    .mobile-player-cover-wrap {
+        width: 100%;
+        max-width: 340px;
+        aspect-ratio: 1;
+        margin-bottom: 24px;
+        border-radius: 16px;
+        overflow: hidden;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.06);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(139,92,246,0.08);
+    }
+
+    .mobile-player-cover {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #1e1e2e;
+    }
+
+    .mobile-player-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* --- Track Info + Heart --- */
+    .mobile-player-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        max-width: 340px;
+        margin-bottom: 20px;
+    }
+
+    /* --- Progress Bar --- */
+    .mobile-player-progress {
+        width: 100%;
+        max-width: 340px;
+        margin-bottom: 24px;
+    }
+
+    .mobile-progress-bar {
+        width: 100%;
+        height: 4px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .mobile-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+        border-radius: 4px;
+        position: relative;
+        transition: width 0.1s linear;
+    }
+
+    .mobile-progress-thumb {
+        position: absolute;
+        right: -6px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 14px;
+        background: #a78bfa;
+        border-radius: 50%;
+        box-shadow: 0 0 8px rgba(139,92,246,0.5);
+    }
+
+    .mobile-progress-times {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+
+    /* --- Main Controls --- */
+    .mobile-player-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        max-width: 340px;
+        margin-bottom: 32px;
+        padding: 0 8px;
+    }
+
+    .mobile-ctrl-btn {
+        padding: 8px;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.2s, transform 0.15s;
+    }
+
+    .mobile-ctrl-btn:active {
+        transform: scale(0.9);
+    }
+
+    .mobile-play-btn {
+        width: 72px;
+        height: 72px;
+        min-width: 72px;
+        min-height: 72px;
+        flex-shrink: 0;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        box-shadow: 0 4px 20px rgba(139,92,246,0.4);
+        transition: transform 0.15s, box-shadow 0.15s;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-play-btn:active {
+        transform: scale(0.92);
+        box-shadow: 0 2px 12px rgba(139,92,246,0.3);
+    }
+}
+
+/* ========================================
    MOBILE OVERLAY
    ======================================== */
 #sidebarOverlay {
@@ -364,6 +537,7 @@
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         padding-bottom: 190px; /* space for player bar + bottom nav */
+        will-change: transform;
     }
 
     #sidebar.open {
@@ -402,50 +576,88 @@
     /* --- Content area: full width, bottom padding for player + nav --- */
     #contentArea {
         padding: 1rem;
-        padding-bottom: 240px; /* player bar (~150px) + bottom nav (56px) + margin */
+        padding-bottom: 140px; /* compact player (~68px) + bottom nav (56px) + margin */
     }
 
-    /* --- Player Bar: stacked mobile layout --- */
+    /* --- Player Bar: minimalist mobile layout --- */
     #playerBar {
         bottom: 56px; /* above bottom nav */
-        padding: 0.5rem 0.75rem;
+        padding: 0;
+        border-top: none;
     }
 
     #playerBar > div {
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
     }
 
-    /* Track info row */
-    #playerBar .w-64 {
+    /* === Row 1: Progress bar on top (edge-to-edge) === */
+    #playerBar .flex-1.flex.flex-col {
         width: 100%;
+        order: -1; /* move above track info */
+    }
+
+    /* Hide time labels and control buttons on the main controls row */
+    #playerBar .flex-1.flex.flex-col > div:first-child {
+        display: none; /* hide shuffle/prev/play/next/repeat row - we'll inline them */
+    }
+
+    /* Progress bar: edge-to-edge thin line at top */
+    #playerBar .max-w-lg {
+        max-width: 100%;
+        gap: 0;
+        padding: 0;
+    }
+
+    #playerBar .max-w-lg #currentTime,
+    #playerBar .max-w-lg #duration {
+        display: none; /* hide time in progress row */
+    }
+
+    #playerBar .max-w-lg .flex-1 {
+        border-radius: 0;
+        height: 3px;
+    }
+
+    #playerBar .max-w-lg #progressFill {
+        border-radius: 0;
+    }
+
+    #playerBar .max-w-lg #progressFill > div {
+        display: none; /* hide drag handle on mobile progress */
+    }
+
+    /* === Row 2: Track info + inline controls === */
+    #playerBar .w-56:first-child {
+        width: 100%;
+        flex-shrink: 0;
+        order: 1;
+        padding: 8px 12px;
+    }
+
+    #playerBar .w-56:first-child > div:first-child {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
         flex-shrink: 0;
     }
 
-    #playerBar .w-64 > div:first-child {
-        width: 40px;
-        height: 40px;
-    }
-
-    /* Controls: full width, centered */
-    #playerBar .flex-1.flex.flex-col {
-        width: 100%;
-        order: 2;
-    }
-
-    #playerBar .flex-1.flex.flex-col > div:first-child {
-        gap: 1rem;
-    }
-
-    /* Progress bar full width */
-    #playerBar .max-w-lg {
-        max-width: 100%;
-    }
-
     /* Hide volume section on mobile */
-    #playerBar .w-48 {
+    #playerBar .justify-end.pr-2 {
         display: none;
     }
+
+    /* Show mobile-only inline controls */
+    #mobileInlineControls {
+        display: flex !important;
+    }
+
+    /* Show mobile time display */
+    #mobileTimeDisplay {
+        display: block !important;
+    }
+
 
     /* --- Bottom Navigation Bar --- */
     .mobile-bottom-nav {
@@ -530,16 +742,33 @@
     /* Even smaller adjustments */
     #contentArea {
         padding: 0.75rem;
-        padding-bottom: 240px;
+        padding-bottom: 180px;
     }
 
     /* Player: compact track info */
-    #playerBar .w-64 {
+    #playerBar .w-56:first-child {
         gap: 0.5rem;
+        padding: 6px 8px;
     }
 
-    #playerBar .w-64 .min-w-0 p:first-child {
+    #playerBar .w-56:first-child .min-w-0 p:first-child {
         font-size: 0.75rem;
+    }
+
+    /* Smaller mobile controls */
+    #mobileInlineControls button:not(#mobilePlayPauseBtn) svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    #mobilePlayPauseBtn {
+        width: 36px !important;
+        height: 36px !important;
+    }
+
+    #mobilePlayPauseBtn svg {
+        width: 16px !important;
+        height: 16px !important;
     }
 
     /* Compact track rows */
@@ -570,11 +799,11 @@
     }
 
     /* Player bar: slightly less track info width */
-    #playerBar .w-64 {
+    #playerBar .w-56:first-child {
         width: 180px;
     }
 
-    #playerBar .w-48 {
-        width: 140px;
+    #playerBar .justify-end.pr-2 {
+        width: 160px;
     }
 }

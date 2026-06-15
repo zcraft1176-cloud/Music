@@ -63,8 +63,21 @@ const App = {
         };
 
         mobileMenuBtn?.addEventListener('click', openSidebar);
-        mobileMenuBtnBottom?.addEventListener('click', openSidebar);
+        mobileMenuBtnBottom?.addEventListener('click', () => {
+            if (sidebar?.classList.contains('open')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        });
         sidebarOverlay?.addEventListener('click', closeSidebar);
+
+        // Mobile: set volume to optimal (100%) since volume controls are hidden
+        if (window.innerWidth < 768 && typeof Player !== 'undefined') {
+            Player.volume = 1;
+            Player.audio.volume = 1;
+            Player.isMuted = false;
+        }
 
         // Close sidebar when a nav button inside sidebar is clicked (mobile)
         sidebar?.querySelectorAll('.nav-btn').forEach(btn => {
@@ -201,6 +214,170 @@ const App = {
                 });
             }
         });
+
+        // Mobile gestures
+        this.setupMobileGestures();
+    },
+
+    /**
+     * Setup mobile touch gestures
+     * - Swipe right on content → open sidebar
+     * - Swipe up on player bar → expand fullscreen player
+     * - Swipe down on expanded player → collapse back
+     */
+    setupMobileGestures() {
+        if (window.innerWidth >= 768) return; // desktop — skip
+
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const playerBar = document.getElementById('playerBar');
+        const expandedPlayer = document.getElementById('mobilePlayerExpanded');
+        const contentArea = document.getElementById('contentArea');
+
+        const SWIPE_THRESHOLD = 50;   // px minimum to trigger
+        const VELOCITY_THRESHOLD = 0.3; // px/ms — fast flick triggers even below threshold
+
+        // =============================================
+        // 1. Swipe RIGHT on content → open sidebar
+        // =============================================
+        if (contentArea && sidebar) {
+            let startX = 0, startY = 0, startTime = 0, tracking = false;
+
+            contentArea.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                // Only trigger from left edge (first 30px)
+                if (touch.clientX > 30) return;
+                startX = touch.clientX;
+                startY = touch.clientY;
+                startTime = Date.now();
+                tracking = true;
+                sidebar.style.transition = 'none';
+            }, { passive: true });
+
+            contentArea.addEventListener('touchmove', (e) => {
+                if (!tracking) return;
+                const dx = e.touches[0].clientX - startX;
+                const dy = Math.abs(e.touches[0].clientY - startY);
+                // If vertical scroll dominates, cancel gesture
+                if (dy > Math.abs(dx)) { tracking = false; sidebar.style.transition = ''; return; }
+                if (dx < 0) return;
+                // Follow finger: sidebar slides from -280 to 0
+                const progress = Math.min(dx / 280, 1);
+                sidebar.style.transform = `translateX(${-280 + (progress * 280)}px)`;
+                if (sidebarOverlay) {
+                    sidebarOverlay.style.opacity = progress * 1;
+                    sidebarOverlay.style.pointerEvents = progress > 0.1 ? 'auto' : 'none';
+                }
+            }, { passive: true });
+
+            contentArea.addEventListener('touchend', (e) => {
+                if (!tracking) return;
+                tracking = false;
+                const dx = e.changedTouches[0].clientX - startX;
+                const elapsed = Date.now() - startTime;
+                const velocity = dx / elapsed;
+
+                sidebar.style.transition = '';
+                sidebar.style.transform = '';
+                if (sidebarOverlay) { sidebarOverlay.style.opacity = ''; sidebarOverlay.style.pointerEvents = ''; }
+
+                if (dx > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
+                    sidebar.classList.add('open');
+                    sidebarOverlay?.classList.add('active');
+                }
+            }, { passive: true });
+        }
+
+        // =============================================
+        // 2. Swipe UP on player bar → expand player
+        // =============================================
+        if (playerBar && expandedPlayer) {
+            let startX = 0, startY = 0, startTime = 0, tracking = false;
+            const screenH = window.innerHeight;
+
+            playerBar.addEventListener('touchstart', (e) => {
+                // Don't hijack controls or progress bar taps
+                if (e.target.closest('button') || e.target.closest('#progressBar') || e.target.closest('#mobileExpProgressBar')) return;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                startTime = Date.now();
+                tracking = true;
+                expandedPlayer.style.transition = 'none';
+            }, { passive: true });
+
+            playerBar.addEventListener('touchmove', (e) => {
+                if (!tracking) return;
+                const dy = startY - e.touches[0].clientY; // positive = swiping up
+                const dx = Math.abs(e.touches[0].clientX - startX);
+                // If horizontal movement dominates, cancel
+                if (dx > Math.abs(dy)) { tracking = false; expandedPlayer.style.transition = ''; expandedPlayer.style.transform = ''; return; }
+                if (dy < 10) return; // must be swiping up
+                // Follow finger: translate from 100% to 0
+                const progress = Math.min(Math.max(dy / screenH, 0), 1);
+                expandedPlayer.style.transform = `translateY(${100 - (progress * 100)}%)`;
+            }, { passive: true });
+
+            playerBar.addEventListener('touchend', (e) => {
+                if (!tracking) return;
+                tracking = false;
+                const dy = startY - e.changedTouches[0].clientY;
+                const elapsed = Date.now() - startTime;
+                const velocity = dy / elapsed;
+
+                expandedPlayer.style.transition = '';
+                expandedPlayer.style.transform = '';
+
+                if (dy > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
+                    Player.expandMobilePlayer();
+                }
+            }, { passive: true });
+        }
+
+        // =============================================
+        // 3. Swipe DOWN on expanded player → collapse
+        // =============================================
+        if (expandedPlayer) {
+            let startY = 0, startTime = 0, tracking = false;
+            const screenH = window.innerHeight;
+
+            expandedPlayer.addEventListener('touchstart', (e) => {
+                // Only allow drag from top part (first 80px) or the handle
+                const touch = e.touches[0];
+                const rect = expandedPlayer.getBoundingClientRect();
+                const touchY = touch.clientY - rect.top;
+                if (touchY > 80 || e.target.closest('button') || e.target.closest('.mobile-progress-bar')) return;
+                startY = touch.clientY;
+                startTime = Date.now();
+                tracking = true;
+                expandedPlayer.style.transition = 'none';
+            }, { passive: true });
+
+            expandedPlayer.addEventListener('touchmove', (e) => {
+                if (!tracking) return;
+                const dy = e.touches[0].clientY - startY; // positive = swiping down
+                if (dy < 0) { expandedPlayer.style.transform = 'translateY(0)'; return; } // don't allow upward past 0
+                const progress = Math.min(dy / screenH, 1);
+                expandedPlayer.style.transform = `translateY(${progress * 100}%)`;
+            }, { passive: true });
+
+            expandedPlayer.addEventListener('touchend', (e) => {
+                if (!tracking) return;
+                tracking = false;
+                const dy = e.changedTouches[0].clientY - startY;
+                const elapsed = Date.now() - startTime;
+                const velocity = dy / elapsed;
+
+                expandedPlayer.style.transition = '';
+                expandedPlayer.style.transform = '';
+
+                if (dy > SWIPE_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
+                    Player.collapseMobilePlayer();
+                } else {
+                    // Snap back open
+                    expandedPlayer.classList.add('open');
+                }
+            }, { passive: true });
+        }
     },
 
     /**

@@ -372,7 +372,7 @@
     #sidebar .nav-btn[data-view="home"],
     #sidebar .nav-btn[data-view="search"],
     #sidebar .nav-btn[data-view="trending"],
-    #sidebar .nav-btn[data-view="queue"] {
+    #sidebar .nav-btn[data-view="history"] {
         display: none;
     }
 

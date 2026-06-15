@@ -332,6 +332,9 @@ const Player = {
         this._retrying = false;
         this.updateUI();
 
+        // Save to play history
+        UI.addToHistory(track);
+
         // For Deezer tracks, pre-set source to youtube to prevent HTML5 error handler
         // from firing during the async resolve phase (unless it resolves to preview)
         if (track.source === 'deezer') {

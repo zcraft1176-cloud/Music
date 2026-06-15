@@ -86,11 +86,9 @@ const App = {
                     } else if (view === 'search') {
                         UI.showView('search');
                         document.getElementById('searchInput')?.focus();
-                    } else if (view === 'queue') {
-                        UI.showView('queue');
-                        UI.updateQueueUI();
-                    } else if (view === 'browse') {
-                        UI.showView('home');
+                    } else if (view === 'history') {
+                        UI.showView('history');
+                        UI.renderHistoryView();
                     } else if (view === 'playlists') {
                         UI.showView('playlists');
                         UI.renderPlaylistsPage();

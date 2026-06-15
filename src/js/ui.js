@@ -33,11 +33,9 @@ const UI = {
                     } else if (view === 'search') {
                         this.showView('search');
                         document.getElementById('searchInput')?.focus();
-                    } else if (view === 'browse') {
-                        this.showView('home');
-                    } else if (view === 'queue') {
-                        this.showView('queue');
-                        this.updateQueueUI();
+                    } else if (view === 'history') {
+                        this.showView('history');
+                        this.renderHistoryView();
                     } else if (view === 'playlists') {
                         this.showView('playlists');
                         this.renderPlaylistsPage();
@@ -582,6 +580,8 @@ const UI = {
                 return this.getTracksFromContainer('trendingContent');
             case 'genre':
                 return Search._genreState?.allTracks || this._renderedTracks || [];
+            case 'history':
+                return this._history || [];
             case 'browse':
                 return this.getTracksFromContainer('browseContent');
             case 'queue':
@@ -751,6 +751,117 @@ const UI = {
                 </button>
             </div>
         `).join('');
+    },
+
+    // ========================================
+    // HISTORY MANAGEMENT
+    // ========================================
+
+    _history: [],
+    _maxHistory: 100,
+
+    /**
+     * Load history from localStorage
+     */
+    loadHistory() {
+        try {
+            this._history = JSON.parse(localStorage.getItem('playHistory')) || [];
+        } catch {
+            this._history = [];
+        }
+    },
+
+    /**
+     * Add a track to play history
+     */
+    addToHistory(track) {
+        if (!track || !track.title) return;
+
+        // Remove duplicate if exists
+        this._history = this._history.filter(t => 
+            !(t.title === track.title && t.artist === track.artist)
+        );
+
+        // Add to beginning with timestamp
+        this._history.unshift({
+            ...track,
+            playedAt: Date.now()
+        });
+
+        // Limit size
+        this._history = this._history.slice(0, this._maxHistory);
+
+        // Save
+        localStorage.setItem('playHistory', JSON.stringify(this._history));
+    },
+
+    /**
+     * Clear play history
+     */
+    clearHistory() {
+        this._history = [];
+        localStorage.removeItem('playHistory');
+        this.renderHistoryView();
+        this.showToast('History cleared', 'success');
+    },
+
+    /**
+     * Render history view
+     */
+    renderHistoryView() {
+        const container = document.getElementById('historyContent');
+        if (!container) return;
+
+        this.loadHistory();
+        this._renderedTracks = this._history;
+
+        if (this._history.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12 text-gray-400">
+                    <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-lg">No listening history yet</p>
+                    <p class="text-sm mt-1">Play some music to see your history here</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = this._history.map((track, index) => {
+            const timeAgo = this._getTimeAgo(track.playedAt);
+            return `
+                <div class="track-card flex items-center gap-4 p-3 rounded-lg hover:bg-dark-100 transition-colors cursor-pointer" data-track-index="${index}">
+                    <div class="w-8 text-center text-sm text-gray-500">${index + 1}</div>
+                    <img src="${track.cover || ''}" alt="" class="w-10 h-10 rounded object-cover" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%234a5568%22><path d=%22M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z%22/></svg>'">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm truncate">${this.escapeHtml(track.title)}</p>
+                        <p class="text-xs text-gray-400 truncate">${this.escapeHtml(track.artist)}</p>
+                    </div>
+                    <span class="text-xs text-gray-500 hidden sm:inline">${timeAgo}</span>
+                    <span class="text-xs text-gray-400">${Player.formatTime(track.duration)}</span>
+                </div>
+            `;
+        }).join('');
+
+        this.attachTrackListeners(container);
+
+        // Clear history button
+        document.getElementById('clearHistoryBtn')?.addEventListener('click', () => {
+            this.clearHistory();
+        });
+    },
+
+    /**
+     * Format time ago string
+     */
+    _getTimeAgo(timestamp) {
+        if (!timestamp) return '';
+        const seconds = Math.floor((Date.now() - timestamp) / 1000);
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+        return new Date(timestamp).toLocaleDateString();
     },
 
     /**

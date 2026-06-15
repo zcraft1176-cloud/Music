@@ -52,12 +52,7 @@
                     </svg>
                     <span>Search</span>
                 </button>
-                <button data-view="browse" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                    </svg>
-                    <span>Browse</span>
-                </button>
+
                 <button data-view="trending" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
@@ -98,14 +93,13 @@
                 </div>
             </div>
 
-            <!-- Queue Section -->
+            <!-- History Section -->
             <div class="p-4 border-t border-gray-800">
-                <button data-view="queue" class="nav-btn w-full flex items-center gap-3 px-4 py-2 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                <button data-view="history" class="nav-btn w-full flex items-center gap-3 px-4 py-2 rounded-lg text-left hover:bg-dark-100 transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    <span>Queue</span>
-                    <span id="queueCount" class="ml-auto bg-primary text-white text-xs px-2 py-0.5 rounded-full">0</span>
+                    <span>History</span>
                 </button>
             </div>
         </aside>
@@ -166,13 +160,7 @@
                     </div>
                 </div>
 
-                <!-- Browse View -->
-                <div id="browseView" class="view-content hidden">
-                    <h2 class="text-2xl font-bold mb-4">Browse Music</h2>
-                    <div id="browseContent" class="space-y-6">
-                        <!-- Browse content will be rendered here -->
-                    </div>
-                </div>
+
 
                 <!-- Genre Detail View -->
                 <div id="genreView" class="view-content hidden">
@@ -200,14 +188,20 @@
                     </div>
                 </div>
 
-                <!-- Queue View -->
-                <div id="queueView" class="view-content hidden">
+                <!-- History View -->
+                <div id="historyView" class="view-content hidden">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-2xl font-bold">Queue</h2>
-                        <button id="clearQueueBtn" class="text-red-400 hover:text-red-300 text-sm">Clear Queue</button>
+                        <h2 class="text-2xl font-bold">Recently Played</h2>
+                        <button id="clearHistoryBtn" class="text-red-400 hover:text-red-300 text-sm">Clear History</button>
                     </div>
-                    <div id="queueContent" class="space-y-2">
-                        <!-- Queue content will be rendered here -->
+                    <div id="historyContent" class="space-y-2">
+                        <div class="text-center py-12 text-gray-400">
+                            <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p class="text-lg">No listening history yet</p>
+                            <p class="text-sm mt-1">Play some music to see your history here</p>
+                        </div>
                     </div>
                 </div>
 
@@ -496,11 +490,11 @@
             </svg>
             <span>Trending</span>
         </button>
-        <button data-view="queue" class="mobile-nav-btn" aria-label="Queue">
+        <button data-view="history" class="mobile-nav-btn" aria-label="History">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <span>Queue</span>
+            <span>History</span>
         </button>
         <button id="mobileMenuBtnBottom" class="mobile-nav-btn" aria-label="More">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">

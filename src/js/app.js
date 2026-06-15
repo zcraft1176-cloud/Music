@@ -90,8 +90,7 @@ const App = {
                         UI.showView('queue');
                         UI.updateQueueUI();
                     } else if (view === 'browse') {
-                        UI.showView('browse');
-                        Search.loadGenres();
+                        UI.showView('home');
                     } else if (view === 'playlists') {
                         UI.showView('playlists');
                         UI.renderPlaylistsPage();

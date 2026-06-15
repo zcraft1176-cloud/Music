@@ -34,8 +34,7 @@ const UI = {
                         this.showView('search');
                         document.getElementById('searchInput')?.focus();
                     } else if (view === 'browse') {
-                        this.showView('browse');
-                        Search.loadGenres();
+                        this.showView('home');
                     } else if (view === 'queue') {
                         this.showView('queue');
                         this.updateQueueUI();
@@ -270,8 +269,7 @@ const UI = {
         // Back button handler
         const backBtn = document.getElementById('genreBackBtn');
         backBtn?.addEventListener('click', () => {
-            this.showView('browse');
-            Search.loadGenres();
+            this.showView('home');
         });
     },
 

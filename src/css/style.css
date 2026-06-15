@@ -383,7 +383,7 @@
     /* --- Content area: full width, bottom padding for player + nav --- */
     #contentArea {
         padding: 1rem;
-        padding-bottom: 15rem; /* space for player bar (~140px) + bottom nav (56px) */
+        padding-bottom: 20rem; /* generous space for player bar + bottom nav on all devices */
     }
 
     /* --- Player Bar: stacked mobile layout --- */

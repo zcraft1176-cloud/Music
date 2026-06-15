@@ -1,4 +1,6 @@
 {
+    "buildCommand": "npm run build:css",
+    "outputDirectory": ".",
     "rewrites": [
         { "source": "/api/proxy", "destination": "/api/proxy" }
     ]

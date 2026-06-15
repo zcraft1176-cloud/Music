@@ -29,6 +29,11 @@
     color: #8b5cf6;
 }
 
+/* Content area bottom padding — clear fixed player bar */
+#contentArea {
+    padding-bottom: 120px !important; /* desktop: player bar ~90px + margin */
+}
+
 /* Track Card Styles */
 .track-card {
     transition: all 0.2s ease;
@@ -382,8 +387,8 @@
 
     /* --- Content area: full width, bottom padding for player + nav --- */
     #contentArea {
-        padding: 1rem;
-        padding-bottom: 20rem; /* generous space for player bar + bottom nav on all devices */
+        padding: 1rem !important;
+        padding-bottom: 320px !important; /* player bar (~160px) + bottom nav (56px) + safe margin */
     }
 
     /* --- Player Bar: stacked mobile layout --- */

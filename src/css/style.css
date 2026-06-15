@@ -25,6 +25,14 @@
     background: #5a5a6a;
 }
 
+/* Settings Section Icons (black PNG → white) */
+.settings-icon {
+    width: 24px;
+    height: 24px;
+    filter: invert(1);
+    flex-shrink: 0;
+}
+
 /* Navigation Button Active State */
 .nav-btn.active {
     background-color: #1e1e2e;

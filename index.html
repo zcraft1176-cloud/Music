@@ -192,6 +192,24 @@
                     </div>
                 </div>
 
+                <!-- Genre Detail View -->
+                <div id="genreView" class="view-content hidden">
+                    <div class="flex items-center gap-4 mb-6">
+                        <button id="genreBackBtn" class="p-2 hover:bg-dark-100 rounded-lg transition-colors" aria-label="Back">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                            </svg>
+                        </button>
+                        <div>
+                            <h2 id="genreTitle" class="text-2xl font-bold">Genre</h2>
+                            <p id="genreTrackCount" class="text-sm text-gray-400"></p>
+                        </div>
+                    </div>
+                    <div id="genreContent" class="space-y-2">
+                        <!-- Genre tracks will be rendered here -->
+                    </div>
+                </div>
+
                 <!-- Trending View -->
                 <div id="trendingView" class="view-content hidden">
                     <h2 class="text-2xl font-bold mb-4">Trending Music</h2>

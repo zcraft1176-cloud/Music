@@ -250,6 +250,32 @@ const UI = {
     },
 
     /**
+     * Render genre detail results into genreView
+     */
+    renderGenreResults(tracks, genreName) {
+        const container = document.getElementById('genreContent');
+        if (!container) return;
+
+        if (tracks.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12 text-gray-400">
+                    <p class="text-lg">No tracks found for ${genreName}</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = tracks.map((track, index) => this.renderTrackRow(track, index)).join('');
+        this.attachTrackListeners(container);
+
+        // Back button handler
+        const backBtn = document.getElementById('genreBackBtn');
+        backBtn?.addEventListener('click', () => {
+            this.showView('browse');
+            Search.loadGenres();
+        });
+    },
+
+    /**
      * Render genres grid
      */
     renderGenres(genres) {

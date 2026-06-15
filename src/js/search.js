@@ -80,15 +80,23 @@ const Search = {
      */
     async searchByGenre(genre) {
         const genreName = typeof genre === 'object' ? genre.name : genre;
-        UI.showLoading('browse');
-        UI.showView('browse');
+        UI.showView('genre');
+
+        // Show loading in genre content
+        const genreContent = document.getElementById('genreContent');
+        if (genreContent) {
+            genreContent.innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full"></div></div>';
+        }
+        document.getElementById('genreTitle').textContent = genreName;
+        document.getElementById('genreTrackCount').textContent = 'Loading...';
 
         try {
             const results = await MusicAPI.getByGenre(genre, { 
                 limit: 50 
             });
 
-            UI.renderBrowseResults(results, genreName);
+            document.getElementById('genreTrackCount').textContent = `${results.length} tracks`;
+            UI.renderGenreResults(results, genreName);
         } catch (error) {
             console.error('Genre search error:', error);
             UI.showToast('Failed to load genre. Please try again.', 'error');

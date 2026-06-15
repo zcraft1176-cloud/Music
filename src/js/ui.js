@@ -269,12 +269,15 @@ const UI = {
 
         container.innerHTML = genres.map((genre, index) => {
             const color = genreColors[index % genreColors.length];
+            const name = typeof genre === 'object' ? genre.name : genre;
+            const data = typeof genre === 'object' ? JSON.stringify(genre).replace(/"/g, '&quot;') : genre;
             return `
                 <div 
                     class="genre-card bg-gradient-to-br ${color} cursor-pointer"
-                    onclick="Search.searchByGenre('${genre}')"
+                    data-genre='${JSON.stringify(genre)}'
+                    onclick="Search.searchByGenre(JSON.parse(this.dataset.genre))"
                 >
-                    <span class="font-semibold capitalize text-white">${genre}</span>
+                    <span class="font-semibold text-white">${name}</span>
                 </div>
             `;
         }).join('');

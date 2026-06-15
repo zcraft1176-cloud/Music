@@ -135,20 +135,89 @@ const MusicAPI = {
 
     getGenres() {
         return [
-            'pop', 'rock', 'hiphop', 'electronic', 'jazz', 'classical',
-            'r&b', 'metal', 'folk', 'blues', 'reggae', 'country',
-            'indie', 'soul', 'funk', 'punk', 'ambient', 'latin'
+            { name: 'Pop', id: 132 },
+            { name: 'Rock', id: 152 },
+            { name: 'Hip Hop', id: 116 },
+            { name: 'Electronic', id: 106 },
+            { name: 'Jazz', id: 129 },
+            { name: 'Classical', id: 98 },
+            { name: 'R&B', id: 165 },
+            { name: 'Metal', id: 464 },
+            { name: 'Folk', id: 466 },
+            { name: 'Blues', id: 153 },
+            { name: 'Reggae', id: 144 },
+            { name: 'Country', id: 84 },
+            { name: 'Indie', id: 85 },
+            { name: 'Soul', id: 169 },
+            { name: 'Funk', id: 169 },
+            { name: 'Punk', id: 152 },
+            { name: 'Ambient', id: 106 },
+            { name: 'Latin', id: 197 }
         ];
     },
 
     async getByGenre(genre, options = {}) {
-        const { limit = 20 } = options;
-        const cacheKey = `genre:${genre}:${limit}`;
+        const { limit = 50 } = options;
+        const genreObj = typeof genre === 'object' ? genre : this.getGenres().find(g => g.name.toLowerCase() === genre.toLowerCase());
+        const genreName = genreObj?.name || genre;
+        const genreId = genreObj?.id;
+        const cacheKey = `genre:${genreName}:${limit}`;
         const cached = this.getCached(cacheKey);
         if (cached) return cached;
 
+        let tracks = [];
         try {
-            const tracks = await this.deezer.search(`${genre}`, limit);
+            // Method 1: Deezer genre chart endpoint (best results)
+            if (genreId) {
+                const chartUrl = `${this.config.deezer.baseUrl}/chart/${genreId}/tracks?limit=${limit}`;
+                const proxyUrl = this.getProxyUrl(chartUrl);
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                if (data.data && data.data.length > 0) {
+                    tracks = data.data.map(t => this.deezer.formatTrack(t));
+                }
+            }
+
+            // Method 2: If chart gave too few results, supplement with editorial playlist search
+            if (tracks.length < 10 && genreId) {
+                const artistsUrl = `${this.config.deezer.baseUrl}/genre/${genreId}/artists?limit=10`;
+                const proxyUrl2 = this.getProxyUrl(artistsUrl);
+                const res2 = await fetch(proxyUrl2);
+                const data2 = await res2.json();
+                if (data2.data) {
+                    // Get top tracks from genre artists
+                    const artistPromises = data2.data.slice(0, 5).map(async artist => {
+                        try {
+                            const topUrl = `${this.config.deezer.baseUrl}/artist/${artist.id}/top?limit=10`;
+                            const proxyUrl3 = this.getProxyUrl(topUrl);
+                            const res3 = await fetch(proxyUrl3);
+                            const data3 = await res3.json();
+                            return data3.data ? data3.data.map(t => this.deezer.formatTrack(t)) : [];
+                        } catch { return []; }
+                    });
+                    const artistTracks = (await Promise.all(artistPromises)).flat();
+                    // Merge without duplicates
+                    const existingIds = new Set(tracks.map(t => t.id));
+                    for (const t of artistTracks) {
+                        if (!existingIds.has(t.id)) {
+                            tracks.push(t);
+                            existingIds.add(t.id);
+                        }
+                        if (tracks.length >= limit) break;
+                    }
+                }
+            }
+
+            // Method 3: Fallback to search with better query
+            if (tracks.length < 5) {
+                const fallbackTracks = await this.deezer.search(`genre:"${genreName}"`, limit);
+                const existingIds = new Set(tracks.map(t => t.id));
+                for (const t of fallbackTracks) {
+                    if (!existingIds.has(t.id)) tracks.push(t);
+                    if (tracks.length >= limit) break;
+                }
+            }
+
             this.setCache(cacheKey, tracks);
             return tracks;
         } catch (e) {

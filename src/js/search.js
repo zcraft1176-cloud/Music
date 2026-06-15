@@ -79,15 +79,16 @@ const Search = {
      * Search by genre
      */
     async searchByGenre(genre) {
+        const genreName = typeof genre === 'object' ? genre.name : genre;
         UI.showLoading('browse');
         UI.showView('browse');
 
         try {
             const results = await MusicAPI.getByGenre(genre, { 
-                limit: 30 
+                limit: 50 
             });
 
-            UI.renderBrowseResults(results, genre);
+            UI.renderBrowseResults(results, genreName);
         } catch (error) {
             console.error('Genre search error:', error);
             UI.showToast('Failed to load genre. Please try again.', 'error');

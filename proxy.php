@@ -36,6 +36,8 @@ $allowedDomains = [
     'api.piped.private.coffee',
     'pipedapi.kavin.rocks',
     'pipedapi.adminforge.de',
+    'pipedapi.leptons.xyz',
+    'pipedapi.in.projectsegfau.lt',
     'inv.thepixora.com',
     'invidious.f5.si',
     'yt.chocolatemoo53.com'

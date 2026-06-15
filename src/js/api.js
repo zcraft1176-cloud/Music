@@ -17,7 +17,9 @@ const MusicAPI = {
             instances: [
                 'https://api.piped.private.coffee',
                 'https://pipedapi.kavin.rocks',
-                'https://pipedapi.adminforge.de'
+                'https://pipedapi.adminforge.de',
+                'https://pipedapi.leptons.xyz',
+                'https://pipedapi.in.projectsegfau.lt'
             ],
             currentIndex: 0
         },
@@ -263,6 +265,18 @@ const MusicAPI = {
             }
         } catch (e) { console.warn('[Step 2] Failed:', e.message); }
 
+        // Step 3: YouTube via Invidious (different API, different instances)
+        console.log(`[Step 3] Invidious search: ${query}`);
+        try {
+            const vid = await this.invidious.findVideoId(query, track.duration);
+            if (vid) {
+                track.videoId = vid;
+                track.audioUrl = `yt:${vid}`;
+                console.log(`[Step 3] ✅ Found: ${vid}`);
+                return track.audioUrl;
+            }
+        } catch (e) { console.warn('[Step 3] Failed:', e.message); }
+
         console.warn('All resolve steps failed for:', query);
         return null;
     },
@@ -417,6 +431,80 @@ const MusicAPI = {
             if (!url) return null;
             const m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/) || url.match(/\/([a-zA-Z0-9_-]{11})/);
             return m ? m[1] : (/^[a-zA-Z0-9_-]{11}$/.test(url) ? url : null);
+        }
+    },
+
+    // =====================
+    // INVIDIOUS API (Fallback YouTube search)
+    // =====================
+    invidious: {
+        async invidiousFetch(path) {
+            const cfg = MusicAPI.config.invidious;
+            for (let i = 0; i < cfg.instances.length; i++) {
+                const base = cfg.instances[(cfg.currentIndex + i) % cfg.instances.length];
+                const target = `${base}${path}`;
+                const proxyUrl = MusicAPI.getProxyUrl(target);
+                try {
+                    const ctrl = new AbortController();
+                    const tm = setTimeout(() => ctrl.abort(), 15000);
+                    const res = await fetch(proxyUrl, { signal: ctrl.signal });
+                    clearTimeout(tm);
+                    if (res.ok) return await res.json();
+                } catch (e) {
+                    console.warn(`Invidious ${base} failed:`, e.message);
+                }
+            }
+            cfg.currentIndex = (cfg.currentIndex + 1) % cfg.instances.length;
+            return null;
+        },
+
+        async findVideoId(query, expectedDuration = 0) {
+            try {
+                const data = await this.invidiousFetch(
+                    `/api/v1/search?q=${encodeURIComponent(query)}&type=video&sort_by=relevance`
+                );
+                if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+                const queryLower = query.toLowerCase();
+                let candidates = data
+                    .filter(item => item.type === 'video' && item.lengthSeconds > 30 && item.lengthSeconds < 600);
+
+                if (candidates.length === 0) return null;
+
+                // Score candidates
+                const scored = candidates.map(item => {
+                    const title = (item.title || '').toLowerCase();
+                    const author = (item.author || '').toLowerCase();
+                    let score = 0;
+
+                    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+                    const matchedWords = queryWords.filter(w =>
+                        title.includes(w) || author.includes(w)
+                    );
+                    score += (matchedWords.length / queryWords.length) * 100;
+
+                    if (expectedDuration > 0) {
+                        const durationDiff = Math.abs(item.lengthSeconds - expectedDuration);
+                        score += Math.max(0, 50 - durationDiff * 2);
+                    }
+
+                    return { item, score };
+                });
+
+                scored.sort((a, b) => b.score - a.score);
+
+                console.log('Invidious candidates:', scored.slice(0, 3).map(s =>
+                    `"${s.item.title}" score=${s.score.toFixed(0)}`
+                ));
+
+                const best = scored[0];
+                if (best && best.item.videoId) {
+                    return best.item.videoId;
+                }
+            } catch (e) {
+                console.warn('Invidious search failed:', e.message);
+            }
+            return null;
         }
     },
 

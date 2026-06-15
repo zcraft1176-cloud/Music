@@ -1,0 +1,5 @@
+# MsicFree - robots.txt
+User-agent: *
+Allow: /
+
+Sitemap: https://msicfree.vercel.app/sitemap.xml

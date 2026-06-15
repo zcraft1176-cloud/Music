@@ -1,6 +1,6 @@
 # 🎵 Music Stream
 
-**Free High Quality Music Streaming — tanpa iklan, tanpa langganan.**
+**Free Music Streaming — tanpa iklan, tanpa langganan.**
 
 Aplikasi web streaming musik gratis yang menggabungkan metadata dari Deezer dengan pemutaran audio melalui YouTube IFrame. Dilengkapi Google Sign-In untuk sinkronisasi playlist ke cloud.
 

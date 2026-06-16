@@ -567,8 +567,7 @@
     /* --- Hide sidebar items already in bottom nav --- */
     #sidebar .nav-btn[data-view="home"],
     #sidebar .nav-btn[data-view="search"],
-    #sidebar .nav-btn[data-view="trending"],
-    #sidebar .nav-btn[data-view="history"] {
+    #sidebar .nav-btn[data-view="trending"] {
         display: none;
     }
 

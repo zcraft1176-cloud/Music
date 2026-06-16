@@ -71,7 +71,7 @@ const Downloader = {
                 // LOCAL: Use yt-dlp via PHP proxy (most reliable)
                 UI.showToast(`Downloading: ${track.title}...`, 'info');
                 const proxyUrl = `download-proxy.php?videoId=${encodeURIComponent(videoId)}&title=${encodeURIComponent(baseName)}`;
-                this._triggerDownload(proxyUrl, baseName + '.webm');
+                this._triggerDownload(proxyUrl, baseName + '.mp3');
                 
                 // Show success after a short delay
                 setTimeout(() => {

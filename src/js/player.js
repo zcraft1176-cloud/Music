@@ -998,6 +998,11 @@ const Player = {
 
         // Update queue count
         this.updateQueueCount();
+
+        // Update like button state
+        if (typeof LikedSongs !== 'undefined') {
+            LikedSongs.updatePlayerLikeButtons();
+        }
     },
 
     /**

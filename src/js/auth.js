@@ -35,8 +35,9 @@ const Auth = {
 
                 if (user) {
                     console.log(`Logged in as: ${user.displayName} (${user.email})`);
-                    // Sync playlists from cloud
+                    // Sync playlists and liked songs from cloud
                     PlaylistManager.syncFromCloud();
+                    LikedSongs.syncFromCloud();
                 } else {
                     console.log('Not logged in');
                     // Load local playlists only

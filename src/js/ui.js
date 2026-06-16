@@ -36,6 +36,9 @@ const UI = {
                     } else if (view === 'history') {
                         this.showView('history');
                         this.renderHistoryView();
+                    } else if (view === 'liked') {
+                        this.showView('liked');
+                        LikedSongs.renderLikedView();
                     } else if (view === 'playlists') {
                         this.showView('playlists');
                         this.renderPlaylistsPage();
@@ -474,9 +477,25 @@ const UI = {
                     <span class="source-badge ${track.source} text-xs">${MusicAPI.getSourceLabel(track.source)}</span>
                     <span class="text-xs text-gray-400 w-12 text-right">${duration}</span>
                     <div class="flex items-center gap-1">
+                        <button class="like-track-btn p-2 ${typeof LikedSongs !== 'undefined' && LikedSongs.isLiked(track.id) ? 'text-primary' : 'text-gray-400'} hover:text-primary transition-colors" data-track-id="${track.id}" title="Like">
+                            <svg class="w-4 h-4 like-icon-outline ${typeof LikedSongs !== 'undefined' && LikedSongs.isLiked(track.id) ? 'hidden' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            </svg>
+                            <svg class="w-4 h-4 like-icon-filled ${typeof LikedSongs !== 'undefined' && LikedSongs.isLiked(track.id) ? '' : 'hidden'}" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                        </button>
                         <button class="add-queue-btn p-2 text-gray-400 hover:text-white transition-colors" title="Add to queue">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                        </button>
+                        <button class="download-track-btn p-2 text-gray-400 hover:text-green-400 transition-colors" data-track-id="${track.id}" title="Download">
+                            <svg class="w-4 h-4 download-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            <svg class="w-4 h-4 download-spinner hidden animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke-width="2" stroke-dasharray="31.4" stroke-dashoffset="10"/>
                             </svg>
                         </button>
                         <button class="add-playlist-btn p-2 text-gray-400 hover:text-white transition-colors" title="Add to playlist">
@@ -564,6 +583,30 @@ const UI = {
                 const trackIndex = parseInt(btn.dataset.trackIndex);
                 if (playlistId) {
                     PlaylistManager.removeTrackFromPlaylist(playlistId, trackIndex);
+                }
+            });
+        });
+
+        // Like buttons
+        container.querySelectorAll('.like-track-btn').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = btn.closest('.track-card');
+                const trackIndex = parseInt(card.dataset.trackIndex);
+                if (tracks[trackIndex]) {
+                    LikedSongs.toggleLike(tracks[trackIndex]);
+                }
+            });
+        });
+
+        // Download buttons
+        container.querySelectorAll('.download-track-btn').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = btn.closest('.track-card');
+                const trackIndex = parseInt(card.dataset.trackIndex);
+                if (tracks[trackIndex]) {
+                    Downloader.download(tracks[trackIndex]);
                 }
             });
         });

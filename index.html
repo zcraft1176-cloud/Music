@@ -126,6 +126,13 @@
                     </svg>
                     <span>History</span>
                 </button>
+                <button data-view="liked" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                    <span>Liked Songs</span>
+                    <span id="likedCount" class="ml-auto text-xs text-gray-500">0</span>
+                </button>
                 <button data-view="settings" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
@@ -259,6 +266,44 @@
                             </svg>
                             <p class="text-lg">No listening history yet</p>
                             <p class="text-sm mt-1">Play some music to see your history here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Liked Songs View -->
+                <div id="likedView" class="view-content hidden">
+                    <!-- Spotify-style Liked Songs Header -->
+                    <div class="bg-gradient-to-b from-purple-900/60 to-transparent -mx-6 -mt-6 px-6 pt-6 pb-8 mb-6 rounded-t-xl">
+                        <div class="flex items-end gap-5">
+                            <div class="w-24 h-24 md:w-40 md:h-40 bg-gradient-to-br from-purple-700 to-blue-400 rounded-lg flex items-center justify-center shadow-2xl shrink-0">
+                                <svg class="w-12 h-12 md:w-20 md:h-20 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                </svg>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-xs uppercase tracking-wider text-gray-300 mb-1">Playlist</p>
+                                <h2 class="text-2xl md:text-4xl font-extrabold text-white mb-2">Liked Songs</h2>
+                                <p id="likedSongsCount" class="text-sm text-gray-300">0 songs</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 mt-6">
+                            <button id="playAllLikedBtn" class="w-12 h-12 bg-primary rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-primary/30">
+                                <svg class="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </button>
+                            <button id="shuffleLikedBtn" class="text-gray-400 hover:text-white transition-colors" title="Shuffle play">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="likedSongsContent" class="space-y-2">
+                        <div class="text-center py-12 text-gray-400">
+                            <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            </svg>
+                            <p class="text-lg">No liked songs yet</p>
+                            <p class="text-sm mt-1">Songs you like will appear here</p>
                         </div>
                     </div>
                 </div>
@@ -518,6 +563,15 @@
                     <!-- Mobile: time display under title -->
                     <p id="mobileTimeDisplay" class="text-xs text-gray-500 hidden"><span id="mobileCurrentTime">0:00</span> / <span id="mobileDuration">0:00</span></p>
                 </div>
+                <!-- Desktop Like Button -->
+                <button id="desktopLikeBtn" class="hidden md:block p-1.5 text-gray-500 hover:text-primary transition-all hover:scale-110 shrink-0" title="Like">
+                    <svg class="w-5 h-5 like-icon-outline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                    <svg class="w-5 h-5 like-icon-filled hidden text-primary" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                </button>
                 <!-- Mobile: inline controls -->
                 <div id="mobileInlineControls" class="hidden items-center gap-3 flex-shrink-0">
                     <button id="mobilePrevBtn" class="text-gray-400 active:text-white">
@@ -652,6 +706,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
                     </svg>
                 </button>
+                <button id="mobileExpDownload" class="text-gray-500 hover:text-green-400 transition-colors" title="Download">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                </button>
             </div>
 
             <!-- Progress Bar -->
@@ -722,11 +781,11 @@
             </svg>
             <span>Trending</span>
         </button>
-        <button data-view="history" class="mobile-nav-btn" aria-label="History">
+        <button data-view="liked" class="mobile-nav-btn" aria-label="Liked">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
             </svg>
-            <span>History</span>
+            <span>Liked</span>
         </button>
         <button id="mobileMenuBtnBottom" class="mobile-nav-btn" aria-label="More">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -771,6 +830,8 @@
     <script src="src/js/auth.js"></script>
     <script src="src/js/player.js"></script>
     <script src="src/js/playlist.js"></script>
+    <script src="src/js/liked.js"></script>
+    <script src="src/js/download.js"></script>
     <script src="src/js/search.js"></script>
     <script src="src/js/ui.js"></script>
     <script src="src/js/app.js"></script>

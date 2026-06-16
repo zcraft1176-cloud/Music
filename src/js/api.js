@@ -281,6 +281,48 @@ const MusicAPI = {
         return null;
     },
 
+    /**
+     * Get a direct audio URL suitable for downloading
+     * For YouTube: uses Piped /streams/ endpoint to extract best audio stream
+     * For other sources: returns existing audioUrl
+     */
+    async getDirectAudioUrl(track) {
+        // Non-YouTube: already has direct URL
+        if (track.audioUrl && !track.audioUrl.startsWith('yt:')) {
+            return { url: track.audioUrl, format: 'mp3' };
+        }
+
+        // YouTube: resolve via Piped /streams/ 
+        if (track.videoId) {
+            try {
+                const data = await this.piped.pipedFetch(`/streams/${track.videoId}`);
+                if (data && data.audioStreams && data.audioStreams.length > 0) {
+                    // Sort by bitrate descending, pick best quality audio
+                    const audioStreams = data.audioStreams
+                        .filter(s => s.mimeType && s.mimeType.includes('audio'))
+                        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+
+                    if (audioStreams.length > 0) {
+                        const best = audioStreams[0];
+                        const format = best.mimeType.includes('webm') ? 'webm' 
+                                     : best.mimeType.includes('mp4') ? 'm4a' 
+                                     : 'mp3';
+                        return { 
+                            url: best.url, 
+                            format,
+                            bitrate: best.bitrate,
+                            quality: best.quality 
+                        };
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to get direct audio URL:', e);
+            }
+        }
+
+        return null;
+    },
+
     // =====================
     // DEEZER API (Metadata)
     // =====================

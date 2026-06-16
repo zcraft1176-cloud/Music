@@ -16,6 +16,8 @@ const App = {
             UI.init();
             Player.init();
             PlaylistManager.init();
+            LikedSongs.init();
+            Downloader.init();
             Search.init();
 
             // Load initial content
@@ -102,6 +104,9 @@ const App = {
                     } else if (view === 'history') {
                         UI.showView('history');
                         UI.renderHistoryView();
+                    } else if (view === 'liked') {
+                        UI.showView('liked');
+                        LikedSongs.renderLikedView();
                     } else if (view === 'playlists') {
                         UI.showView('playlists');
                         UI.renderPlaylistsPage();

@@ -1,142 +1,131 @@
 <?php
 /**
- * Audio Download Proxy
- * Streams audio binary data from upstream (YouTube CDN, Jamendo, etc.)
- * with proper Content-Type and Content-Disposition headers
+ * YouTube Audio Download Proxy
+ * Uses yt-dlp to extract direct audio URL, then streams to browser
+ * 
+ * Usage: 
+ *   download-proxy.php?videoId=VIDEO_ID&title=FILENAME  (YouTube via yt-dlp)
+ *   download-proxy.php?url=DIRECT_URL&filename=FILENAME (non-YouTube direct URL)
  */
+
+set_time_limit(300);
+ini_set('memory_limit', '512M');
+ob_end_clean(); // Disable output buffering
 
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
-// Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    header('Content-Type: application/json');
-    http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
-    exit;
-}
-
-$url = $_GET['url'] ?? '';
-$filename = $_GET['filename'] ?? 'download.mp3';
-
-if (empty($url)) {
-    header('Content-Type: application/json');
-    http_response_code(400);
-    echo json_encode(['error' => 'Missing url parameter']);
-    exit;
-}
-
-// Whitelist allowed domains for audio download
-$parsed = parse_url($url);
-$host = $parsed['host'] ?? '';
-
-$allowedPatterns = [
-    // YouTube CDN (googlevideo.com subdomains like rr1---sn-xxx.googlevideo.com)
-    '/\.googlevideo\.com$/',
-    // Piped proxy instances
-    '/^pipedproxy\./',
-    '/\.piped\./',
-    // Jamendo CDN
-    '/\.jamendo\.com$/',
-    '/jamendo/',
-    // Archive.org
-    '/\.archive\.org$/',
-    // Deezer CDN (previews)
-    '/\.dzcdn\.net$/',
-    '/\.deezer\.com$/',
-    // Piped API instances (for proxied streams)
-    '/^api\.piped\./',
-    '/^pipedapi\./',
-];
-
-$allowed = false;
-foreach ($allowedPatterns as $pattern) {
-    if (preg_match($pattern, $host)) {
-        $allowed = true;
-        break;
-    }
-}
-
-if (!$allowed) {
-    header('Content-Type: application/json');
-    http_response_code(403);
-    echo json_encode(['error' => 'Domain not allowed: ' . $host]);
-    exit;
-}
-
-// Sanitize filename
-$filename = preg_replace('/[<>:"\/\\\\|?*]/', '', $filename);
-$filename = trim($filename);
-if (empty($filename)) $filename = 'download.mp3';
-
-// Stream the audio file
-$ch = curl_init();
-curl_setopt_array($ch, [
-    CURLOPT_URL => $url,
-    CURLOPT_RETURNTRANSFER => false,
-    CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_MAXREDIRS => 5,
-    CURLOPT_TIMEOUT => 120,
-    CURLOPT_CONNECTTIMEOUT => 15,
-    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-    CURLOPT_HTTPHEADER => [
-        'Accept: audio/*, video/*, */*',
-        'Accept-Language: en-US,en;q=0.9',
-        'Range: bytes=0-',
-    ],
-    // Write output directly using a callback
-    CURLOPT_HEADERFUNCTION => function($ch, $headerLine) {
-        $len = strlen($headerLine);
-        $header = strtolower(trim($headerLine));
-        
-        // Forward content-type
-        if (strpos($header, 'content-type:') === 0) {
-            $ct = trim(substr($headerLine, 13));
-            header('Content-Type: ' . $ct);
-        }
-        // Forward content-length
-        if (strpos($header, 'content-length:') === 0) {
-            $cl = trim(substr($headerLine, 15));
-            header('Content-Length: ' . $cl);
-        }
-        
-        return $len;
-    },
-]);
-
-// Set download headers
-header('Content-Disposition: attachment; filename="' . $filename . '"');
-header('Cache-Control: no-cache');
-
-// Buffer and output
-ob_start();
-curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($ch, $data) {
-    echo $data;
-    if (ob_get_level() > 0) ob_flush();
-    flush();
-    return strlen($data);
-});
-
-$success = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$error = curl_error($ch);
-curl_close($ch);
-
-if (!$success || $error) {
-    // If we haven't sent any data yet, send error
-    if (ob_get_length() === 0) {
-        ob_end_clean();
-        header('Content-Type: application/json');
-        header_remove('Content-Disposition');
+/**
+ * Stream a remote URL to the client
+ */
+function streamToClient($url, $filename) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 5,
+        CURLOPT_TIMEOUT => 240,
+        CURLOPT_CONNECTTIMEOUT => 30,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        CURLOPT_HTTPHEADER => [
+            'Accept: */*',
+            'Accept-Encoding: identity',
+        ],
+    ]);
+    
+    $data = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($httpCode !== 200 || $data === false) {
         http_response_code(502);
-        echo json_encode(['error' => 'Download failed', 'detail' => $error]);
+        echo json_encode(['error' => 'Stream failed', 'status' => $httpCode, 'curl_error' => $error]);
+        return false;
     }
+    
+    header("Content-Type: $contentType");
+    header("Content-Disposition: attachment; filename=\"$filename\"");
+    header('Content-Length: ' . strlen($data));
+    header('Cache-Control: no-cache');
+    echo $data;
+    return true;
 }
 
-ob_end_flush();
+// ===== Direct URL streaming (non-YouTube sources) =====
+if (isset($_GET['url'])) {
+    $url = $_GET['url'];
+    $filename = isset($_GET['filename']) ? $_GET['filename'] : 'download.mp3';
+    
+    $parsed = parse_url($url);
+    $host = $parsed['host'] ?? '';
+    $allowed = ['googlevideo.com', 'piped', 'jamendo.com', 'archive.org', 'dzcdn.net', 'deezer.com'];
+    $isAllowed = false;
+    foreach ($allowed as $p) {
+        if (stripos($host, $p) !== false) { $isAllowed = true; break; }
+    }
+    
+    if (!$isAllowed) {
+        http_response_code(403);
+        echo json_encode(['error' => "Domain not allowed: $host"]);
+        exit;
+    }
+    
+    $safeName = preg_replace('/[<>:"\/\\\\|?*]/', '', $filename) ?: 'download.mp3';
+    streamToClient($url, $safeName);
+    exit;
+}
+
+// ===== YouTube download via yt-dlp =====
+if (isset($_GET['videoId'])) {
+    $videoId = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['videoId']);
+    $title = isset($_GET['title']) ? $_GET['title'] : 'download';
+    $safeName = preg_replace('/[<>:"\/\\\\|?*]/', '', $title);
+    $safeName = trim($safeName) ?: 'download';
+    
+    $ytdlp = __DIR__ . DIRECTORY_SEPARATOR . 'yt-dlp.exe';
+    
+    if (!file_exists($ytdlp)) {
+        http_response_code(500);
+        echo json_encode(['error' => 'yt-dlp.exe not found']);
+        exit;
+    }
+    
+    // Extract direct audio URL using yt-dlp
+    $youtubeUrl = "https://www.youtube.com/watch?v=$videoId";
+    $cmd = escapeshellarg($ytdlp) . ' --get-url -f "bestaudio" --no-warnings ' . escapeshellarg($youtubeUrl) . ' 2>&1';
+    
+    $output = [];
+    $returnCode = 0;
+    exec($cmd, $output, $returnCode);
+    
+    $directUrl = '';
+    foreach ($output as $line) {
+        $line = trim($line);
+        if (strpos($line, 'http') === 0) $directUrl = $line;
+    }
+    
+    if (empty($directUrl)) {
+        http_response_code(502);
+        echo json_encode(['error' => 'yt-dlp failed', 'code' => $returnCode, 'output' => $output]);
+        exit;
+    }
+    
+    // Determine file extension
+    $ext = 'webm';
+    if (strpos($directUrl, 'mime=audio%2Fmp4') !== false) $ext = 'm4a';
+    $filename = $safeName . '.' . $ext;
+    
+    streamToClient($directUrl, $filename);
+    exit;
+}
+
+// No valid parameters
+http_response_code(400);
+echo json_encode(['error' => 'Missing parameters. Use ?videoId=ID&title=NAME or ?url=URL&filename=NAME']);

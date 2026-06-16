@@ -20,3 +20,6 @@ desktop.ini
 # IDE
 .vscode/
 .idea/
+
+# Binary tools (download separately)
+yt-dlp.exe

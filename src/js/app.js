@@ -17,7 +17,6 @@ const App = {
             Player.init();
             PlaylistManager.init();
             LikedSongs.init();
-            Downloader.init();
             Search.init();
 
             // Load initial content

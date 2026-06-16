@@ -78,18 +78,11 @@ const Downloader = {
             // Step 2: Download as MP3
             if (this.isLocal) {
                 // LOCAL: yt-dlp + ffmpeg via PHP proxy → direct MP3 download
-                UI.showToast(`Downloading MP3: ${track.title}... (15-20 detik)`, 'info');
+                UI.showToast(`Downloading MP3: ${track.title}... (tunggu 15-20 detik)`, 'info');
                 const proxyUrl = `download-proxy.php?videoId=${encodeURIComponent(videoId)}&title=${encodeURIComponent(baseName)}`;
                 
-                // Use hidden iframe — PHP Content-Disposition header sets the .mp3 filename
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = proxyUrl;
-                document.body.appendChild(iframe);
-                
-                setTimeout(() => {
-                    document.body.removeChild(iframe);
-                }, 120000); // cleanup after 2 minutes
+                // Direct navigation — browser handles Content-Disposition: attachment
+                window.location.href = proxyUrl;
 
                 UI.showToast(`✅ Download started: ${track.title}.mp3`, 'success');
             } else {

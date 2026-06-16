@@ -490,14 +490,7 @@ const UI = {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                             </svg>
                         </button>
-                        <button class="download-track-btn p-2 text-gray-400 hover:text-green-400 transition-colors" data-track-id="${track.id}" title="Download">
-                            <svg class="w-4 h-4 download-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                            </svg>
-                            <svg class="w-4 h-4 download-spinner hidden animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="10" stroke-width="2" stroke-dasharray="31.4" stroke-dashoffset="10"/>
-                            </svg>
-                        </button>
+
                         <button class="add-playlist-btn p-2 text-gray-400 hover:text-white transition-colors" title="Add to playlist">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
@@ -599,17 +592,7 @@ const UI = {
             });
         });
 
-        // Download buttons
-        container.querySelectorAll('.download-track-btn').forEach((btn) => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const card = btn.closest('.track-card');
-                const trackIndex = parseInt(card.dataset.trackIndex);
-                if (tracks[trackIndex]) {
-                    Downloader.download(tracks[trackIndex]);
-                }
-            });
-        });
+
     },
 
     /**

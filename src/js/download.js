@@ -86,11 +86,27 @@ const Downloader = {
 
                 UI.showToast(`✅ Download started: ${track.title}.mp3`, 'success');
             } else {
-                // VERCEL: No yt-dlp, redirect to external downloader
-                const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                UI.showToast('Opening download page...', 'info');
-                window.open(`https://cobalt.tools/#url=${encodeURIComponent(ytUrl)}`, '_blank');
-                UI.showToast('Complete the download on the opened page', 'success');
+                // VERCEL: Get direct audio URL from Piped, download via Vercel proxy
+                UI.showToast(`Preparing download: ${track.title}...`, 'info');
+                
+                const audioData = await MusicAPI.getDirectAudioUrl(track);
+                
+                if (audioData && audioData.url) {
+                    // Route through Vercel serverless proxy for proper download headers
+                    const ext = audioData.format === 'webm' ? 'webm' : audioData.format === 'm4a' ? 'm4a' : 'mp3';
+                    const filename = `${baseName}.${ext}`;
+                    const downloadUrl = `/api/download?url=${encodeURIComponent(audioData.url)}&filename=${encodeURIComponent(filename)}`;
+                    
+                    UI.showToast(`Downloading: ${track.title}...`, 'info');
+                    window.location.href = downloadUrl;
+                    UI.showToast(`✅ Download started: ${filename}`, 'success');
+                } else {
+                    // Fallback: open cobalt.tools
+                    const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                    UI.showToast('Opening external downloader...', 'warning');
+                    window.open(`https://cobalt.tools/#url=${encodeURIComponent(ytUrl)}`, '_blank');
+                    UI.showToast('Complete the download on the opened page', 'info');
+                }
             }
 
         } catch (error) {

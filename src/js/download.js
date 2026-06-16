@@ -1,9 +1,11 @@
 /**
  * Download Module
- * Handles downloading tracks with yt-dlp backend (local) and cobalt.tools fallback (Vercel)
+ * Downloads tracks as MP3 using yt-dlp + ffmpeg backend
  * 
- * Local (XAMPP): Uses yt-dlp.exe via download-proxy.php for direct YouTube audio download
- * Vercel: Redirects to cobalt.tools web UI (user manually downloads)
+ * Strategy:
+ * - ALL tracks (Deezer/YouTube): resolve to YouTube videoId → yt-dlp → MP3
+ * - Local (XAMPP): download-proxy.php handles yt-dlp + ffmpeg conversion
+ * - Vercel: redirects to cobalt.tools (no yt-dlp available)
  */
 
 const Downloader = {
@@ -22,7 +24,31 @@ const Downloader = {
     },
 
     /**
-     * Download a track
+     * Resolve YouTube videoId for a track (search via Piped/Invidious)
+     */
+    async _resolveVideoId(track) {
+        // Already have videoId
+        if (track.videoId) return track.videoId;
+        
+        // audioUrl is yt:VIDEO_ID format
+        if (track.audioUrl && track.audioUrl.startsWith('yt:')) {
+            return track.audioUrl.substring(3);
+        }
+
+        // Need to search YouTube for this track
+        console.log('[Download] Resolving YouTube videoId...');
+        const resolved = await MusicAPI.resolveAudioUrl(track);
+        if (resolved && track.videoId) {
+            return track.videoId;
+        }
+        if (resolved && track.audioUrl && track.audioUrl.startsWith('yt:')) {
+            return track.audioUrl.substring(3);
+        }
+        return null;
+    },
+
+    /**
+     * Download a track as MP3
      */
     async download(track) {
         if (!track || !track.id) {
@@ -38,47 +64,50 @@ const Downloader = {
         this.activeDownloads.set(track.id, true);
         this._updateDownloadButton(track.id, 'loading');
 
+        const baseName = this._sanitizeFilename(`${track.artist} - ${track.title}`);
+
         try {
-            // Ensure audio URL is resolved
-            if (!track.audioUrl) {
-                UI.showToast(`Finding audio for: ${track.title}...`, 'info');
-                const resolved = await MusicAPI.resolveAudioUrl(track);
-                if (!resolved) {
-                    throw new Error('Could not find audio source');
-                }
+            // Step 1: Find YouTube videoId for this track
+            UI.showToast(`Finding: ${track.title}...`, 'info');
+            const videoId = await this._resolveVideoId(track);
+
+            if (!videoId) {
+                throw new Error('Could not find YouTube source for this track');
             }
 
-            const isYouTube = track.audioUrl && track.audioUrl.startsWith('yt:');
-            const videoId = track.videoId || (isYouTube ? track.audioUrl.substring(3) : null);
-            const baseName = this._sanitizeFilename(`${track.artist} - ${track.title}`);
-
-            // ===== NON-YOUTUBE TRACKS (direct download via proxy) =====
-            if (!isYouTube && track.audioUrl) {
-                const filename = baseName + '.mp3';
-                const proxyBase = this.isLocal ? 'download-proxy.php' : '/api/download';
-                const proxyUrl = `${proxyBase}?url=${encodeURIComponent(track.audioUrl)}&filename=${encodeURIComponent(filename)}`;
-                
-                UI.showToast(`Downloading: ${track.title}...`, 'info');
-                this._triggerDownload(proxyUrl, filename);
-                UI.showToast(`Download started: ${track.title}`, 'success');
-                return;
-            }
-
-            // ===== YOUTUBE TRACKS =====
-            if (!videoId) throw new Error('No video ID available');
-
+            // Step 2: Download as MP3
             if (this.isLocal) {
-                // LOCAL: Use yt-dlp via PHP proxy (most reliable)
-                UI.showToast(`Downloading: ${track.title}...`, 'info');
+                // LOCAL: yt-dlp + ffmpeg via PHP proxy → direct MP3 download
+                UI.showToast(`Downloading MP3: ${track.title}...`, 'info');
                 const proxyUrl = `download-proxy.php?videoId=${encodeURIComponent(videoId)}&title=${encodeURIComponent(baseName)}`;
-                this._triggerDownload(proxyUrl, baseName + '.mp3');
                 
-                // Show success after a short delay
+                // Use fetch to download, then trigger save dialog
+                const response = await fetch(proxyUrl);
+                
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    console.error('[Download] Server error:', errorData);
+                    throw new Error(`Download failed (${response.status})`);
+                }
+
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = baseName + '.mp3';
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                
                 setTimeout(() => {
-                    UI.showToast(`Download started: ${track.title}`, 'success');
-                }, 1500);
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(blobUrl);
+                }, 5000);
+
+                UI.showToast(`✅ Downloaded: ${track.title}`, 'success');
             } else {
-                // VERCEL: Open cobalt.tools (user downloads manually)
+                // VERCEL: No yt-dlp, redirect to external downloader
                 const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
                 UI.showToast('Opening download page...', 'info');
                 window.open(`https://cobalt.tools/#url=${encodeURIComponent(ytUrl)}`, '_blank');
@@ -87,34 +116,11 @@ const Downloader = {
 
         } catch (error) {
             console.error('[Download] Error:', error);
-            
-            const videoId = track.videoId || (track.audioUrl?.startsWith('yt:') ? track.audioUrl.substring(3) : null);
-            if (videoId) {
-                UI.showToast('Opening alternative download...', 'warning');
-                window.open(`https://cobalt.tools/#url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`, '_blank');
-            } else {
-                UI.showToast('Download failed — try playing the song first', 'error');
-            }
+            UI.showToast(`Download failed: ${error.message}`, 'error');
         } finally {
-            setTimeout(() => {
-                this.activeDownloads.delete(track.id);
-                this._updateDownloadButton(track.id, 'idle');
-            }, 2000);
+            this.activeDownloads.delete(track.id);
+            this._updateDownloadButton(track.id, 'idle');
         }
-    },
-
-    /**
-     * Trigger download via hidden anchor tag
-     */
-    _triggerDownload(url, filename) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.style.display = 'none';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => document.body.removeChild(a), 5000);
     },
 
     /**

@@ -283,8 +283,8 @@ const MusicAPI = {
 
     /**
      * Get a direct audio URL suitable for downloading
-     * For YouTube: uses Piped /streams/ endpoint to extract best audio stream
-     * For other sources: returns existing audioUrl
+     * Tries ALL Piped instances, then ALL Invidious instances
+     * Returns direct googlevideo.com URL for the audio stream
      */
     async getDirectAudioUrl(track) {
         // Non-YouTube: already has direct URL
@@ -292,14 +292,26 @@ const MusicAPI = {
             return { url: track.audioUrl, format: 'mp3' };
         }
 
-        // YouTube: resolve via Piped /streams/ 
-        if (track.videoId) {
+        if (!track.videoId) return null;
+
+        // Try ALL Piped instances for /streams/ endpoint
+        const pipedInstances = this.config.piped.instances;
+        for (const instance of pipedInstances) {
             try {
-                const data = await this.piped.pipedFetch(`/streams/${track.videoId}`);
-                if (data && data.audioStreams && data.audioStreams.length > 0) {
-                    // Sort by bitrate descending, pick best quality audio
+                console.log(`[Download] Trying Piped streams: ${instance}`);
+                const target = `${instance}/streams/${track.videoId}`;
+                const proxyUrl = this.getProxyUrl(target);
+                const ctrl = new AbortController();
+                const tm = setTimeout(() => ctrl.abort(), 12000);
+                const res = await fetch(proxyUrl, { signal: ctrl.signal });
+                clearTimeout(tm);
+                
+                if (!res.ok) continue;
+                const data = await res.json();
+                
+                if (data?.audioStreams?.length > 0) {
                     const audioStreams = data.audioStreams
-                        .filter(s => s.mimeType && s.mimeType.includes('audio'))
+                        .filter(s => s.mimeType && s.mimeType.includes('audio') && s.url)
                         .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
                     if (audioStreams.length > 0) {
@@ -307,19 +319,50 @@ const MusicAPI = {
                         const format = best.mimeType.includes('webm') ? 'webm' 
                                      : best.mimeType.includes('mp4') ? 'm4a' 
                                      : 'mp3';
-                        return { 
-                            url: best.url, 
-                            format,
-                            bitrate: best.bitrate,
-                            quality: best.quality 
-                        };
+                        console.log(`[Download] ✅ Got audio from Piped: ${format} ${best.bitrate}bps`);
+                        return { url: best.url, format, bitrate: best.bitrate, quality: best.quality };
                     }
                 }
             } catch (e) {
-                console.error('Failed to get direct audio URL:', e);
+                console.warn(`[Download] Piped ${instance} failed:`, e.message);
             }
         }
 
+        // Try ALL Invidious instances for audio stream
+        const invInstances = this.config.invidious.instances;
+        for (const instance of invInstances) {
+            try {
+                console.log(`[Download] Trying Invidious: ${instance}`);
+                const target = `${instance}/api/v1/videos/${track.videoId}`;
+                const proxyUrl = this.getProxyUrl(target);
+                const ctrl = new AbortController();
+                const tm = setTimeout(() => ctrl.abort(), 12000);
+                const res = await fetch(proxyUrl, { signal: ctrl.signal });
+                clearTimeout(tm);
+                
+                if (!res.ok) continue;
+                const data = await res.json();
+                
+                if (data?.adaptiveFormats?.length > 0) {
+                    const audioFormats = data.adaptiveFormats
+                        .filter(f => f.type && f.type.startsWith('audio/') && f.url)
+                        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+
+                    if (audioFormats.length > 0) {
+                        const best = audioFormats[0];
+                        const format = best.type.includes('webm') ? 'webm'
+                                     : best.type.includes('mp4') ? 'm4a'
+                                     : 'mp3';
+                        console.log(`[Download] ✅ Got audio from Invidious: ${format} ${best.bitrate}bps`);
+                        return { url: best.url, format, bitrate: best.bitrate };
+                    }
+                }
+            } catch (e) {
+                console.warn(`[Download] Invidious ${instance} failed:`, e.message);
+            }
+        }
+
+        console.error('[Download] All instances failed to get audio stream');
         return null;
     },
 

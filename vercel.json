@@ -1,7 +1,13 @@
 {
     "buildCommand": "npm run build:css",
     "outputDirectory": ".",
+    "functions": {
+        "api/download.js": {
+            "maxDuration": 60
+        }
+    },
     "rewrites": [
-        { "source": "/api/proxy", "destination": "/api/proxy" }
+        { "source": "/api/proxy", "destination": "/api/proxy" },
+        { "source": "/api/download", "destination": "/api/download" }
     ]
 }

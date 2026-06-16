@@ -78,34 +78,20 @@ const Downloader = {
             // Step 2: Download as MP3
             if (this.isLocal) {
                 // LOCAL: yt-dlp + ffmpeg via PHP proxy → direct MP3 download
-                UI.showToast(`Downloading MP3: ${track.title}...`, 'info');
+                UI.showToast(`Downloading MP3: ${track.title}... (15-20 detik)`, 'info');
                 const proxyUrl = `download-proxy.php?videoId=${encodeURIComponent(videoId)}&title=${encodeURIComponent(baseName)}`;
                 
-                // Use fetch to download, then trigger save dialog
-                const response = await fetch(proxyUrl);
-                
-                if (!response.ok) {
-                    const errorData = await response.text();
-                    console.error('[Download] Server error:', errorData);
-                    throw new Error(`Download failed (${response.status})`);
-                }
-
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.href = blobUrl;
-                a.download = baseName + '.mp3';
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
+                // Use hidden iframe — PHP Content-Disposition header sets the .mp3 filename
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = proxyUrl;
+                document.body.appendChild(iframe);
                 
                 setTimeout(() => {
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(blobUrl);
-                }, 5000);
+                    document.body.removeChild(iframe);
+                }, 120000); // cleanup after 2 minutes
 
-                UI.showToast(`✅ Downloaded: ${track.title}`, 'success');
+                UI.showToast(`✅ Download started: ${track.title}.mp3`, 'success');
             } else {
                 // VERCEL: No yt-dlp, redirect to external downloader
                 const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;

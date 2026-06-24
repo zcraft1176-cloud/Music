@@ -466,30 +466,21 @@ const PlaylistImporter = {
                 ? `${track.title} ${track.artist}` 
                 : track.title;
 
-            const response = await MusicAPI._deezerFetch(`/search?q=${encodeURIComponent(query)}&limit=3`);
-            if (!response?.data || response.data.length === 0) return null;
+            const results = await MusicAPI.deezer.search(query, 3);
+            if (!results || results.length === 0) return null;
 
             // Find best match
             const titleLower = track.title.toLowerCase();
-            const artistLower = (track.artist || '').toLowerCase();
 
             // Prefer exact title match
-            const bestMatch = response.data.find(r => 
+            const bestMatch = results.find(r => 
                 r.title?.toLowerCase().includes(titleLower) || 
                 titleLower.includes(r.title?.toLowerCase())
-            ) || response.data[0];
+            ) || results[0];
 
-            return {
-                id: bestMatch.id,
-                title: bestMatch.title || bestMatch.title_short,
-                artist: bestMatch.artist?.name || '',
-                album: bestMatch.album?.title || '',
-                cover: bestMatch.album?.cover_medium || bestMatch.album?.cover_small || '',
-                duration: bestMatch.duration || 0,
-                preview: bestMatch.preview || '',
-                source: 'deezer'
-            };
+            return bestMatch; // Already formatted by MusicAPI.deezer.formatTrack
         } catch (e) {
+            console.error('Deezer search error for:', track.title, e);
             return null;
         }
     },

@@ -14,9 +14,11 @@ const PlaylistImporter = {
     _previewTracks: [],
     _playlistName: '',
 
-    // Column header aliases for auto-detection
-    TITLE_HEADERS: ['title', 'song', 'track', 'name', 'judul', 'lagu', 'musik', 'music'],
-    ARTIST_HEADERS: ['artist', 'singer', 'artis', 'penyanyi', 'by', 'band', 'performer'],
+    // Column header keywords for auto-detection (partial match)
+    TITLE_KEYWORDS: ['title', 'song', 'track name', 'track_name', 'name', 'judul', 'lagu', 'musik', 'music'],
+    ARTIST_KEYWORDS: ['artist', 'singer', 'artis', 'penyanyi', 'by', 'band', 'performer'],
+    // Columns to skip — these contain IDs/URIs, not song names
+    SKIP_KEYWORDS: ['uri', 'url', 'id', 'link', 'href', 'duration', 'release', 'date', 'popularity', 'explicit', 'added', 'genre', 'label', 'danceability', 'energy', 'key', 'loudness', 'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo', 'time signature'],
 
     /**
      * Initialize — setup listeners
@@ -341,6 +343,8 @@ const PlaylistImporter = {
 
     /**
      * Auto-detect title/artist columns from a 2D array of rows
+     * Smart matching: supports multi-word headers like "Track Name", "Artist Name(s)"
+     * Skips columns with URI/URL/ID content
      */
     _detectColumnsAndExtract(rows) {
         if (rows.length === 0) return [];
@@ -351,17 +355,39 @@ const PlaylistImporter = {
         let artistCol = -1;
         let hasHeader = false;
 
-        // Check if first row is a header
+        // Score each column for title/artist match
+        // Higher score = better match
+        let bestTitleScore = 0;
+        let bestArtistScore = 0;
+
         for (let i = 0; i < firstRow.length; i++) {
-            if (this.TITLE_HEADERS.includes(firstRow[i])) {
-                titleCol = i;
-                hasHeader = true;
+            const header = firstRow[i];
+
+            // Skip if this column header contains a skip keyword
+            const shouldSkip = this.SKIP_KEYWORDS.some(kw => header.includes(kw));
+            if (shouldSkip) continue;
+
+            // Check title match (longer keyword match = higher priority)
+            for (const kw of this.TITLE_KEYWORDS) {
+                if (header.includes(kw) && kw.length > bestTitleScore) {
+                    titleCol = i;
+                    bestTitleScore = kw.length;
+                    hasHeader = true;
+                }
             }
-            if (this.ARTIST_HEADERS.includes(firstRow[i])) {
-                artistCol = i;
-                hasHeader = true;
+
+            // Check artist match
+            for (const kw of this.ARTIST_KEYWORDS) {
+                if (header.includes(kw) && kw.length > bestArtistScore) {
+                    artistCol = i;
+                    bestArtistScore = kw.length;
+                    hasHeader = true;
+                }
             }
         }
+
+        // Fallback: if title col contains "track" but we also found "track name", 
+        // the longer match wins (already handled above by score)
 
         // No header detected — assume col 0 = title, col 1 = artist
         if (titleCol === -1) titleCol = 0;
@@ -370,11 +396,21 @@ const PlaylistImporter = {
         const dataRows = hasHeader ? rows.slice(1) : rows;
 
         return dataRows
-            .map(row => ({
-                title: String(row[titleCol] || '').trim(),
-                artist: artistCol >= 0 ? String(row[artistCol] || '').trim() : ''
-            }))
-            .filter(t => t.title.length > 0);
+            .map(row => {
+                let title = String(row[titleCol] || '').trim();
+                let artist = artistCol >= 0 ? String(row[artistCol] || '').trim() : '';
+
+                // Filter out spotify URIs that leaked as titles
+                if (title.startsWith('spotify:') || title.startsWith('http')) {
+                    return null;
+                }
+
+                // Clean up artist field — Spotify uses semicolons for multiple artists
+                artist = artist.replace(/;/g, ', ');
+
+                return { title, artist };
+            })
+            .filter(t => t !== null && t.title.length > 0);
     },
 
     // ==========================================

@@ -10,6 +10,7 @@
 
 const PlaylistImporter = {
     _isImporting: false,
+    _isCreating: false,
     _abortController: null,
     _previewTracks: [],
     _playlistName: '',
@@ -459,6 +460,7 @@ const PlaylistImporter = {
 
     /**
      * Search a single track on Deezer
+     * Scores results by title + artist similarity to avoid cover versions
      */
     async _searchDeezer(track) {
         try {
@@ -466,19 +468,43 @@ const PlaylistImporter = {
                 ? `${track.title} ${track.artist}` 
                 : track.title;
 
-            const results = await MusicAPI.deezer.search(query, 3);
+            const results = await MusicAPI.deezer.search(query, 5);
             if (!results || results.length === 0) return null;
 
-            // Find best match
             const titleLower = track.title.toLowerCase();
+            const artistLower = (track.artist || '').toLowerCase()
+                .replace(/;/g, ',').split(',').map(a => a.trim());
 
-            // Prefer exact title match
-            const bestMatch = results.find(r => 
-                r.title?.toLowerCase().includes(titleLower) || 
-                titleLower.includes(r.title?.toLowerCase())
-            ) || results[0];
+            // Score each result
+            let bestScore = -1;
+            let bestMatch = results[0];
 
-            return bestMatch; // Already formatted by MusicAPI.deezer.formatTrack
+            for (const r of results) {
+                let score = 0;
+                const rTitle = (r.title || '').toLowerCase();
+                const rArtist = (r.artist || '').toLowerCase();
+
+                // Title match (0-50 points)
+                if (rTitle === titleLower) score += 50;
+                else if (rTitle.includes(titleLower) || titleLower.includes(rTitle)) score += 30;
+
+                // Artist match (0-50 points) — crucial to avoid cover versions
+                if (artistLower.length > 0 && artistLower[0]) {
+                    for (const a of artistLower) {
+                        if (a && rArtist.includes(a)) {
+                            score += 50;
+                            break;
+                        }
+                    }
+                }
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = r;
+                }
+            }
+
+            return bestMatch;
         } catch (e) {
             console.error('Deezer search error for:', track.title, e);
             return null;
@@ -573,30 +599,47 @@ const PlaylistImporter = {
     // ==========================================
 
     async _createFromPreview() {
-        const nameInput = document.getElementById('importPlaylistName');
-        const name = nameInput?.value.trim() || this._playlistName || 'Imported Playlist';
+        const btn = document.getElementById('importCreateBtn');
 
-        const selected = this._previewTracks
-            .filter(t => t.selected && t.match)
-            .map(t => t.match);
-
-        if (selected.length === 0) {
-            UI.showToast('No songs selected', 'warning');
-            return;
+        // Prevent double-click
+        if (this._isCreating) return;
+        this._isCreating = true;
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
         }
 
-        // Create playlist
-        const playlist = await PlaylistManager.createPlaylist(name);
-        
-        // Add all tracks (silent — no individual toasts)
-        for (const track of selected) {
-            await PlaylistManager.addTrackToPlaylist(playlist.id, track, true);
-        }
+        try {
+            const nameInput = document.getElementById('importPlaylistName');
+            const name = nameInput?.value.trim() || this._playlistName || 'Imported Playlist';
 
-        UI.showToast(`Imported "${name}" with ${selected.length} songs!`, 'success');
-        this.hideModal();
-        
-        // Open the new playlist
-        PlaylistManager.viewPlaylist(playlist.id);
+            const selected = this._previewTracks
+                .filter(t => t.selected && t.match)
+                .map(t => t.match);
+
+            if (selected.length === 0) {
+                UI.showToast('No songs selected', 'warning');
+                return;
+            }
+
+            // Create playlist
+            const playlist = await PlaylistManager.createPlaylist(name);
+            
+            // Add all tracks (silent — no individual toasts)
+            for (const track of selected) {
+                await PlaylistManager.addTrackToPlaylist(playlist.id, track, true);
+            }
+
+            UI.showToast(`Imported "${name}" with ${selected.length} songs!`, 'success');
+            this.hideModal();
+            
+            // Open the new playlist
+            PlaylistManager.viewPlaylist(playlist.id);
+        } finally {
+            this._isCreating = false;
+            if (btn) {
+                btn.disabled = false;
+            }
+        }
     }
 };

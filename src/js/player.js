@@ -200,6 +200,11 @@ const Player = {
                     if (this.elements.mobileExpProgressFill) this.elements.mobileExpProgressFill.style.width = `${pct}%`;
                     if (this.elements.mobileExpCurrentTime) this.elements.mobileExpCurrentTime.textContent = timeStr;
                     if (this.elements.mobileExpDuration) this.elements.mobileExpDuration.textContent = durStr;
+
+                    // Sync lyrics
+                    if (typeof Lyrics !== 'undefined') {
+                        Lyrics.updateSyncedHighlight(cur);
+                    }
                 }
             } catch(e) {}
         }, 500);
@@ -507,6 +512,11 @@ const Player = {
         this.currentTrack = track;
         this._retrying = false;
         this.updateUI();
+
+        // Notify lyrics module of track change
+        if (typeof Lyrics !== 'undefined') {
+            Lyrics.onTrackChange(track);
+        }
 
         // Save to play history
         UI.addToHistory(track);
@@ -915,6 +925,11 @@ const Player = {
         }
         if (this.elements.mobileExpCurrentTime) {
             this.elements.mobileExpCurrentTime.textContent = timeStr;
+        }
+
+        // Update synced lyrics highlight
+        if (typeof Lyrics !== 'undefined') {
+            Lyrics.updateSyncedHighlight(this.audio.currentTime);
         }
     },
 

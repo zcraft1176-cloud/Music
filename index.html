@@ -646,6 +646,11 @@
 
             <!-- Volume & Quality -->
             <div class="flex items-center gap-2.5 w-56 shrink-0 justify-end pr-2">
+                <button id="lyricsToggleBtn" class="text-gray-400 hover:text-purple-400 transition-colors flex-shrink-0" title="Lyrics">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM21 16c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
+                    </svg>
+                </button>
                 <span id="qualityBadge" class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">-</span>
                 <button id="volumeBtn" class="text-gray-400 hover:text-white transition-colors flex-shrink-0">
                     <svg id="volumeIconHigh" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -704,6 +709,11 @@
                 <button id="mobileExpFavorite" class="text-gray-500 hover:text-primary transition-colors" aria-label="Favorite">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                </button>
+                <button id="mobileExpLyrics" class="text-gray-500 hover:text-purple-400 transition-colors" aria-label="Lyrics">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM21 16c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
                     </svg>
                 </button>
 
@@ -826,6 +836,7 @@
     <script src="src/js/api.js?v=2.5"></script>
     <script src="src/js/auth.js?v=2.5"></script>
     <script src="src/js/player.js?v=2.5"></script>
+    <script src="src/js/lyrics.js?v=2.5"></script>
     <script src="src/js/playlist.js?v=2.5"></script>
     <script src="src/js/liked.js?v=2.5"></script>
 

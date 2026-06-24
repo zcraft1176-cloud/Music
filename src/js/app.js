@@ -15,6 +15,7 @@ const App = {
             await Auth.init();
             UI.init();
             Player.init();
+            if (typeof Lyrics !== 'undefined') Lyrics.init();
             PlaylistManager.init();
             LikedSongs.init();
             Search.init();

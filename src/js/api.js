@@ -80,6 +80,28 @@ const MusicAPI = {
     // =====================
     // UNIFIED SEARCH
     // =====================
+
+    /**
+     * Detect if a query looks like lyrics rather than a song/artist name.
+     * Heuristics:
+     *   - 5+ words (lyrics are usually phrases, not just "artist - title")
+     *   - Contains common lyric patterns ("I ", "you ", "we ", "my ", "love", etc.)
+     *   - Not a typical "artist - title" pattern
+     */
+    _looksLikeLyrics(query) {
+        const words = query.trim().split(/\s+/);
+        if (words.length >= 5) return true;
+
+        const lyricPatterns = [
+            /\bi\s+(am|was|want|just|don't|can't|feel|know|love|need|think|see|wish|remember|never|wanna|gotta)\b/i,
+            /\byou\s+(are|know|make|don't|can't|said|were|got)\b/i,
+            /\bwe\s+(are|were|can|don't)\b/i,
+            /\b(never gonna|gotta make|wanna tell|don't stop|can't stop|let me|hold me|take me|give me|tell me)\b/i,
+            /\b(my heart|my love|my soul|your eyes|your love|your heart)\b/i,
+        ];
+        return lyricPatterns.some(p => p.test(query));
+    },
+
     async search(query, options = {}) {
         const { limit = 30, hdOnly = false } = options;
         const cacheKey = `search:${query}:${hdOnly}`;
@@ -92,6 +114,12 @@ const MusicAPI = {
 
         if (this.hasJamendo()) {
             promises.push(this.jamendo.search(query, 5));
+        }
+
+        // If query looks like lyrics, also search via LRCLIB
+        const isLyrics = this._looksLikeLyrics(query);
+        if (isLyrics) {
+            promises.push(this.searchByLyrics(query, 10));
         }
 
         const results = await Promise.allSettled(promises);
@@ -109,10 +137,125 @@ const MusicAPI = {
             return true;
         });
 
+        // If lyrics search found results, prioritize them at the top
+        if (isLyrics) {
+            const lyricsTracks = tracks.filter(t => t._foundViaLyrics);
+            const otherTracks = tracks.filter(t => !t._foundViaLyrics);
+            tracks = [...lyricsTracks, ...otherTracks];
+        }
+
         if (hdOnly) tracks = tracks.filter(t => (t.bitrate || 0) >= 128);
 
         this.setCache(cacheKey, tracks.slice(0, limit));
         return tracks.slice(0, limit);
+    },
+
+    // =====================
+    // LYRICS SEARCH (LRCLIB)
+    // =====================
+    /**
+     * Search songs by lyrics using LRCLIB API (free, no auth, CORS-enabled).
+     * Returns results cross-referenced with Deezer for full metadata.
+     */
+    async searchByLyrics(query, limit = 10) {
+        try {
+            const url = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
+            const res = await fetch(url, {
+                headers: { 'User-Agent': 'MusicFree/1.0 (https://github.com/zcraft1176-cloud/Music)' },
+                signal: AbortSignal.timeout(5000)
+            });
+            if (!res.ok) return [];
+            const data = await res.json();
+            if (!Array.isArray(data) || data.length === 0) return [];
+
+            // Deduplicate LRCLIB results by trackName + artistName
+            const seenLrc = new Set();
+            const uniqueResults = data.filter(item => {
+                const key = `${(item.trackName || '').toLowerCase()}-${(item.artistName || '').toLowerCase()}`;
+                if (seenLrc.has(key)) return false;
+                seenLrc.add(key);
+                return true;
+            }).slice(0, limit);
+
+            // Cross-search each result on Deezer for full metadata
+            const deezerPromises = uniqueResults.map(async (item) => {
+                const searchQuery = `${item.trackName} ${item.artistName}`;
+                try {
+                    const deezerResults = await this.deezer.search(searchQuery, 1);
+                    if (deezerResults.length > 0) {
+                        const track = deezerResults[0];
+                        track._foundViaLyrics = true;
+                        track._lyricsSnippet = this._extractLyricsSnippet(item.plainLyrics, query);
+                        return track;
+                    }
+                } catch {}
+
+                // Fallback: return a basic track object from LRCLIB data only
+                return {
+                    id: `lrclib_${item.id}`,
+                    source: 'deezer',
+                    title: item.trackName || 'Unknown',
+                    artist: item.artistName || 'Unknown',
+                    album: item.albumName || '',
+                    cover: '',
+                    duration: item.duration || 0,
+                    audioUrl: null,
+                    videoId: null,
+                    previewUrl: null,
+                    isPreview: false,
+                    bitrate: 0,
+                    format: '',
+                    genre: [],
+                    license: '',
+                    releaseDate: '',
+                    _foundViaLyrics: true,
+                    _lyricsSnippet: this._extractLyricsSnippet(item.plainLyrics, query)
+                };
+            });
+
+            const results = await Promise.allSettled(deezerPromises);
+            return results
+                .filter(r => r.status === 'fulfilled' && r.value)
+                .map(r => r.value);
+        } catch (e) {
+            console.warn('LRCLIB lyrics search error:', e);
+            return [];
+        }
+    },
+
+    /**
+     * Extract a short snippet of lyrics around the matching query
+     */
+    _extractLyricsSnippet(plainLyrics, query) {
+        if (!plainLyrics) return '';
+        const lines = plainLyrics.split('\n').filter(l => l.trim());
+        const queryLower = query.toLowerCase();
+
+        // Find the line that best matches the query
+        let bestLine = -1;
+        let bestScore = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const lineLower = lines[i].toLowerCase();
+            if (lineLower.includes(queryLower)) {
+                bestLine = i;
+                bestScore = 999;
+                break;
+            }
+            // Partial word matching
+            const queryWords = queryLower.split(/\s+/);
+            const matchCount = queryWords.filter(w => lineLower.includes(w)).length;
+            if (matchCount > bestScore) {
+                bestScore = matchCount;
+                bestLine = i;
+            }
+        }
+
+        if (bestLine === -1) return lines.slice(0, 2).join(' / ');
+
+        // Return 1-2 lines around the match
+        const start = Math.max(0, bestLine);
+        const end = Math.min(lines.length, bestLine + 2);
+        return lines.slice(start, end).join(' / ');
     },
 
     async getTrending(options = {}) {

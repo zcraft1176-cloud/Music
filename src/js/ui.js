@@ -370,6 +370,11 @@ const UI = {
                 <div class="flex-1 min-w-0">
                     <p class="font-medium text-sm truncate">${this.escapeHtml(track.title)}</p>
                     <p class="text-xs text-gray-400 truncate">${this.escapeHtml(track.artist)}</p>
+                    ${track._foundViaLyrics && track._lyricsSnippet ? `
+                        <p class="text-xs text-purple-400/80 truncate mt-0.5 italic" title="${this.escapeHtml(track._lyricsSnippet)}">
+                            <span class="inline-block mr-1">🎵</span>"${this.escapeHtml(track._lyricsSnippet)}"
+                        </p>
+                    ` : ''}
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                     <span class="quality-badge ${quality.class}">${quality.label}</span>
@@ -535,6 +540,9 @@ const UI = {
         const container = document.getElementById('searchResults');
         if (!container) return;
 
+        const hasLyricsResults = tracks.some(t => t._foundViaLyrics);
+        const lyricsCount = tracks.filter(t => t._foundViaLyrics).length;
+
         if (tracks.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-12">
@@ -542,14 +550,18 @@ const UI = {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <p class="text-gray-400">No results found for "${query}"</p>
-                    <p class="text-gray-500 text-sm mt-2">Try different keywords or uncheck HD filter</p>
+                    <p class="text-gray-500 text-sm mt-2">💡 Try searching with lyrics — type a phrase from the song!</p>
                 </div>
             `;
             return;
         }
 
+        const lyricsNote = hasLyricsResults
+            ? `<span class="ml-2 text-purple-400 text-xs">🎵 ${lyricsCount} found via lyrics</span>`
+            : '';
+
         container.innerHTML = `
-            <p class="text-sm text-gray-400 mb-4">Found ${tracks.length} results for "${query}"</p>
+            <p class="text-sm text-gray-400 mb-4">Found ${tracks.length} results for "${query}"${lyricsNote}</p>
             ${tracks.map((track, index) => this.renderTrackRow(track, index)).join('')}
         `;
         this.attachTrackListeners(container);

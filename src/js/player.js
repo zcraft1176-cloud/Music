@@ -627,7 +627,24 @@ const Player = {
             if (this.queue.length > 0) {
                 this.currentIndex = 0;
                 this.play(this.queue[0]);
+                return;
             }
+
+            // No queue either — auto-play trending/recommended
+            this._autoPlayTrending();
+            return;
+        }
+
+        // Check if audio source is actually loaded (e.g. after page refresh)
+        // If the track was restored from state but audio isn't loaded, re-play it
+        const hasAudioLoaded = this._source === 'youtube' 
+            ? (this.ytPlayer && this.ytReady && this.ytPlayer.getVideoUrl && this.ytPlayer.getVideoUrl() !== 'https://www.youtube.com/watch')
+            : (this.audio.src && this.audio.src !== '' && this.audio.src !== window.location.href);
+
+        if (!hasAudioLoaded) {
+            // Track is in UI but audio not loaded — re-play from scratch
+            console.log('[Player] Audio not loaded, re-playing track...');
+            this.play(this.currentTrack);
             return;
         }
 
@@ -635,6 +652,28 @@ const Player = {
             this.pause();
         } else {
             this.resume();
+        }
+    },
+
+    /**
+     * Auto-play trending tracks when player is empty and user clicks play
+     */
+    async _autoPlayTrending() {
+        try {
+            UI.showToast('Finding something to play...', 'info');
+            const trending = await MusicAPI.getTrending({ limit: 20 });
+            if (trending && trending.length > 0) {
+                this.queue = trending;
+                this.currentIndex = 0;
+                UI.updateQueueUI();
+                this.updateQueueCount();
+                this.play(trending[0]);
+            } else {
+                UI.showToast('No tracks available. Try searching for music!', 'info');
+            }
+        } catch (e) {
+            console.error('Auto-play trending error:', e);
+            UI.showToast('Could not load tracks. Try searching!', 'error');
         }
     },
 

@@ -10,8 +10,10 @@ const Player = {
     // Web Audio API for visualizer
     audioContext: null,
     analyser: null,
-    source: null,
+    audioSource: null,
     visualizerAnimationId: null,
+    _preloadedAudio: null,
+    _saveStateTimer: null,
 
     // State
     currentTrack: null,
@@ -176,6 +178,7 @@ const Player = {
 
     /** Sync YouTube playback time to our progress bar */
     _startYTSync() {
+        if (this._ytInterval) return; // Prevent stacking intervals
         this._stopYTSync();
         this._ytInterval = setInterval(() => {
             if (!this.ytPlayer || this._source !== 'youtube') return;
@@ -366,7 +369,7 @@ const Player = {
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
             // Don't trigger shortcuts when typing in inputs
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
             switch(e.code) {
                 case 'Space':
@@ -426,8 +429,8 @@ const Player = {
             this.analyser = this.audioContext.createAnalyser();
             this.analyser.fftSize = 256;
             
-            this.source = this.audioContext.createMediaElementSource(this.audio);
-            this.source.connect(this.analyser);
+            this.audioSource = this.audioContext.createMediaElementSource(this.audio);
+            this.audioSource.connect(this.analyser);
             this.analyser.connect(this.audioContext.destination);
             
             this.drawVisualizer();
@@ -752,10 +755,10 @@ const Player = {
     seek(e) {
         if (!this.currentTrack) return;
         const rect = this.elements.progressBar.getBoundingClientRect();
-        const percent = (e.clientX - rect.left) / rect.width;
+        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
         if (this._source === 'youtube' && this.ytPlayer && this.ytReady) {
             this.ytPlayer.seekTo(percent * (this.ytPlayer.getDuration() || 0), true);
-        } else {
+        } else if (isFinite(this.audio.duration)) {
             this.audio.currentTime = percent * this.audio.duration;
         }
     },
@@ -769,7 +772,7 @@ const Player = {
             const cur = this.ytPlayer.getCurrentTime() || 0;
             const dur = this.ytPlayer.getDuration() || 0;
             this.ytPlayer.seekTo(Math.max(0, Math.min(dur, cur + seconds)), true);
-        } else {
+        } else if (isFinite(this.audio.duration)) {
             this.audio.currentTime = Math.max(0, Math.min(this.audio.duration, this.audio.currentTime + seconds));
         }
     },
@@ -1077,15 +1080,26 @@ const Player = {
      * Preload next track for seamless playback
      */
     preloadNext() {
+        // Cleanup previous preloaded audio to prevent memory leak
+        if (this._preloadedAudio) {
+            this._preloadedAudio.src = '';
+            this._preloadedAudio.load();
+            this._preloadedAudio = null;
+        }
+
         if (this.queue.length > 0) {
             const nextIndex = this.isShuffle 
                 ? Math.floor(Math.random() * this.queue.length)
                 : (this.currentIndex + 1) % this.queue.length;
             
             if (nextIndex !== this.currentIndex && this.queue[nextIndex]) {
-                const preloadAudio = new Audio();
-                preloadAudio.preload = 'auto';
-                preloadAudio.src = this.queue[nextIndex].audioUrl;
+                const nextTrack = this.queue[nextIndex];
+                // Only preload direct audio URLs, not YouTube references
+                if (nextTrack.audioUrl && !nextTrack.audioUrl.startsWith('yt:')) {
+                    this._preloadedAudio = new Audio();
+                    this._preloadedAudio.preload = 'auto';
+                    this._preloadedAudio.src = nextTrack.audioUrl;
+                }
             }
         }
     },
@@ -1094,7 +1108,7 @@ const Player = {
      * Format seconds to mm:ss
      */
     formatTime(seconds) {
-        if (isNaN(seconds)) return '0:00';
+        if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return '0:00';
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -1104,14 +1118,22 @@ const Player = {
      * Save state to localStorage
      */
     saveState() {
-        const state = {
-            queue: this.queue,
-            currentIndex: this.currentIndex,
-            volume: this.volume,
-            isShuffle: this.isShuffle,
-            repeatMode: this.repeatMode
-        };
-        localStorage.setItem('playerState', JSON.stringify(state));
+        // Throttle saves — max once per 2 seconds to avoid excessive writes
+        if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
+        this._saveStateTimer = setTimeout(() => {
+            try {
+                const state = {
+                    queue: this.queue,
+                    currentIndex: this.currentIndex,
+                    volume: this.volume,
+                    isShuffle: this.isShuffle,
+                    repeatMode: this.repeatMode
+                };
+                localStorage.setItem('playerState', JSON.stringify(state));
+            } catch (e) {
+                console.warn('Failed to save player state:', e);
+            }
+        }, 2000);
     },
 
     /**

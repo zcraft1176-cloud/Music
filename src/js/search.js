@@ -8,6 +8,9 @@ const Search = {
     debounceTimer: null,
     debounceDelay: 400,
 
+    // AbortController for cancelling in-flight searches
+    _searchAbortController: null,
+
     // Search history
     history: [],
     maxHistory: 20,
@@ -36,6 +39,11 @@ const Search = {
                     this.performSearch(query);
                 }, this.debounceDelay);
             } else if (query.length === 0) {
+                // Cancel any in-flight search
+                if (this._searchAbortController) {
+                    this._searchAbortController.abort();
+                    this._searchAbortController = null;
+                }
                 UI.showView('home');
             }
         });
@@ -58,6 +66,13 @@ const Search = {
      * Perform search across all APIs
      */
     async performSearch(query) {
+        // Cancel previous in-flight search
+        if (this._searchAbortController) {
+            this._searchAbortController.abort();
+        }
+        this._searchAbortController = new AbortController();
+        const currentController = this._searchAbortController;
+
         UI.showLoading('search');
         UI.showView('search');
 
@@ -66,9 +81,13 @@ const Search = {
                 limit: 30 
             });
 
+            // If this search was cancelled by a newer one, don't update UI
+            if (currentController.signal.aborted) return;
+
             this.addToHistory(query);
             UI.renderSearchResults(results, query);
         } catch (error) {
+            if (currentController.signal.aborted) return;
             console.error('Search error:', error);
             UI.showToast('Search failed. Please try again.', 'error');
             UI.renderSearchResults([], query);

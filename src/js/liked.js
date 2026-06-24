@@ -100,6 +100,8 @@ const LikedSongs = {
      * Update player bar like buttons (desktop + expanded mobile)
      */
     updatePlayerLikeButtons() {
+        // Guard: Player might not be initialized yet
+        if (typeof Player === 'undefined' || !Player) return;
         const currentTrack = Player.currentTrack;
         const isLiked = currentTrack ? this.isLiked(currentTrack.id) : false;
 

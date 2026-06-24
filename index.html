@@ -62,7 +62,7 @@
     </script>
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="dist/css/output.css?v=2.4">
+    <link rel="stylesheet" href="dist/css/output.css?v=2.5">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -701,9 +701,14 @@
                         <span id="mobileExpQualityBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-400 flex-shrink-0">-</span>
                     </div>
                 </div>
-                <button id="mobileExpFavorite" class="text-gray-500 hover:text-primary transition-colors">
+                <button id="mobileExpFavorite" class="text-gray-500 hover:text-primary transition-colors" aria-label="Favorite">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                </button>
+                <button id="mobileExpDownload" class="text-gray-500 hover:text-secondary transition-colors" aria-label="Download">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                 </button>
 
@@ -724,22 +729,22 @@
 
             <!-- Main Controls -->
             <div class="mobile-player-controls">
-                <button id="mobileExpShuffle" class="mobile-ctrl-btn text-gray-400">
+                <button id="mobileExpShuffle" class="mobile-ctrl-btn text-gray-400" aria-label="Shuffle">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                     </svg>
                 </button>
-                <button id="mobileExpPrev" class="mobile-ctrl-btn text-white">
+                <button id="mobileExpPrev" class="mobile-ctrl-btn text-white" aria-label="Previous track">
                     <svg class="w-9 h-9" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                 </button>
-                <button id="mobileExpPlayPause" class="mobile-play-btn">
+                <button id="mobileExpPlayPause" class="mobile-play-btn" aria-label="Play or Pause">
                     <svg id="mobileExpPlayIcon" class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     <svg id="mobileExpPauseIcon" class="w-10 h-10 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                 </button>
-                <button id="mobileExpNext" class="mobile-ctrl-btn text-white">
+                <button id="mobileExpNext" class="mobile-ctrl-btn text-white" aria-label="Next track">
                     <svg class="w-9 h-9" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
                 </button>
-                <button id="mobileExpRepeat" class="mobile-ctrl-btn text-gray-400">
+                <button id="mobileExpRepeat" class="mobile-ctrl-btn text-gray-400" aria-label="Repeat">
                     <svg id="mobileExpRepeatNone" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
@@ -755,7 +760,7 @@
     </div>
 
     <!-- Toast Container -->
-    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+    <div id="toastContainer" class="fixed top-4 right-4 z-[70] space-y-2"></div>
 
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav" id="mobileBottomNav">
@@ -822,14 +827,15 @@
     </div>
 
     <!-- Scripts -->
-    <script src="src/js/api.js?v=2.4"></script>
-    <script src="src/js/auth.js?v=2.4"></script>
-    <script src="src/js/player.js?v=2.4"></script>
-    <script src="src/js/playlist.js?v=2.4"></script>
-    <script src="src/js/liked.js?v=2.4"></script>
+    <script src="src/js/api.js?v=2.5"></script>
+    <script src="src/js/auth.js?v=2.5"></script>
+    <script src="src/js/player.js?v=2.5"></script>
+    <script src="src/js/playlist.js?v=2.5"></script>
+    <script src="src/js/liked.js?v=2.5"></script>
 
-    <script src="src/js/search.js?v=2.4"></script>
-    <script src="src/js/ui.js?v=2.4"></script>
-    <script src="src/js/app.js?v=2.4"></script>
+    <script src="src/js/search.js?v=2.5"></script>
+    <script src="src/js/ui.js?v=2.5"></script>
+    <script src="src/js/download.js?v=3.0"></script>
+    <script src="src/js/app.js?v=2.5"></script>
 </body>
 </html>

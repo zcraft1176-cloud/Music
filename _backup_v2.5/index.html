@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MsicFree - Streaming Musik Gratis </title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="MsicFree adalah platform streaming musik gratis. Dengarkan, cari, dan buat playlist favorit langsung di browser tanpa perlu akun.">
+    <meta name="keywords" content="musik gratis, streaming musik, free music, dengarkan musik online, MsicFree, playlist gratis, lagu gratis, music player online">
+    <meta name="author" content="MsicFree">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#8b5cf6">
+    <link rel="canonical" href="https://msicfree.vercel.app/">
+
+    <!-- Open Graph (Facebook, Discord, WhatsApp, dll) -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://msicfree.vercel.app/">
+    <meta property="og:title" content="MsicFree - Streaming Musik Gratis">
+    <meta property="og:description" content="Dengarkan jutaan lagu gratis. Cari, putar, dan buat playlist langsung di browser tanpa perlu akun.">
+    <meta property="og:image" content="https://msicfree.vercel.app/logo.png">
+    <meta property="og:image:width" content="500">
+    <meta property="og:image:height" content="500">
+    <meta property="og:site_name" content="MsicFree">
+    <meta property="og:locale" content="id_ID">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:url" content="https://msicfree.vercel.app/">
+    <meta name="twitter:title" content="MsicFree - Streaming Musik Gratis">
+    <meta name="twitter:description" content="Dengarkan jutaan lagu gratis. Cari, putar, dan buat playlist langsung di browser.">
+    <meta name="twitter:image" content="https://msicfree.vercel.app/logo.png">
+
+    <!-- Favicon & Apple Touch -->
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "MsicFree",
+        "url": "https://msicfree.vercel.app/",
+        "description": "Platform streaming musik gratis. Dengarkan langsung di browser tanpa akun.",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Web Browser",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "IDR"
+        },
+        "image": "https://msicfree.vercel.app/logo.png",
+        "author": {
+            "@type": "Organization",
+            "name": "MsicFree"
+        },
+        "inLanguage": ["id", "en"],
+        "browserRequirements": "Requires JavaScript. Requires HTML5.",
+        "softwareVersion": "2.0"
+    }
+    </script>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="dist/css/output.css?v=2.5">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <!-- SortableJS for drag-and-drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+</head>
+<body class="bg-dark-400 text-white min-h-screen overflow-hidden">
+    <div id="app" class="flex h-screen">
+        <button id="mobileMenuBtn" class="hidden fixed top-4 left-4 z-50 bg-dark-200 p-2 rounded-lg" aria-label="Menu">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+
+        <!-- Sidebar Overlay (mobile) -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 z-40 md:hidden"></div>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-dark-300 flex flex-col border-r border-gray-800 shrink-0">
+            <!-- Logo -->
+            <div class="p-6 border-b border-gray-800">
+                <div class="flex items-center gap-3">
+                    <img src="logo.png" alt="MsicFree" class="w-9 h-9">
+                    <div>
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">MsicFree</h1>
+                        <p class="text-[10px] text-gray-400">Free Streaming Music</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auth Area -->
+            <div id="authArea" class="px-4 py-3 border-b border-gray-800">
+                <!-- Filled dynamically by auth.js -->
+            </div>
+
+            <!-- Navigation -->
+            <nav class="p-4 space-y-2">
+                <button data-view="home" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    <span>Home</span>
+                </button>
+                <button data-view="search" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <span>Search</span>
+                </button>
+
+                <button data-view="trending" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                    <span>Trending</span>
+                </button>
+                <button data-view="history" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>History</span>
+                </button>
+                <button data-view="liked" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                    <span>Liked Songs</span>
+                    <span id="likedCount" class="ml-auto text-xs text-gray-500">0</span>
+                </button>
+                <button data-view="settings" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <!-- Playlists Nav Button (shown in sidebar) -->
+            <div class="p-4 border-t border-gray-800">
+                <button data-view="playlists" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
+                    </svg>
+                    <span>Playlists</span>
+                </button>
+            </div>
+
+            <!-- Playlists List (desktop sidebar only) -->
+            <div id="sidebarPlaylists" class="flex-1 p-4 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase">Playlists</h3>
+                    <button id="createPlaylistBtn" class="text-primary hover:text-purple-400 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="playlistList" class="space-y-1">
+                    <!-- Playlists will be rendered here -->
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header with Search -->
+            <header class="p-4 bg-dark-200 border-b border-gray-800">
+                <div class="flex items-center gap-4">
+                    <div class="flex-1 relative max-w-2xl">
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            placeholder="Search songs, artists, genres..." 
+                            class="w-full bg-dark-100 border border-gray-700 rounded-full px-5 py-3 pl-12 text-white placeholder-gray-500 focus:outline-none focus:border-primary transition-colors"
+                        >
+                        <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div id="contentArea" class="flex-1 overflow-y-auto p-6">
+
+                <!-- Home View -->
+                <div id="homeView" class="view-content">
+                    <!-- Trending Section -->
+                    <section class="mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold">Trending Now</h3>
+                            <button class="text-primary hover:text-purple-400 text-sm" data-view="trending">See all</button>
+                        </div>
+                        <div id="trendingTracks" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            <!-- Tracks will be rendered here -->
+                            <div class="skeleton-card animate-pulse bg-dark-100 rounded-xl h-48"></div>
+                            <div class="skeleton-card animate-pulse bg-dark-100 rounded-xl h-48"></div>
+                            <div class="skeleton-card animate-pulse bg-dark-100 rounded-xl h-48"></div>
+                            <div class="skeleton-card animate-pulse bg-dark-100 rounded-xl h-48"></div>
+                        </div>
+                    </section>
+
+                    <!-- Genres Section -->
+                    <section>
+                        <h3 class="text-xl font-bold mb-4">Browse by Genre</h3>
+                        <div id="genreList" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                            <!-- Genres will be rendered here -->
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Search View -->
+                <div id="searchView" class="view-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">Search Results</h2>
+                    <div id="searchResults" class="space-y-2">
+                        <!-- Search results will be rendered here -->
+                    </div>
+                </div>
+
+
+
+                <!-- Genre Detail View -->
+                <div id="genreView" class="view-content hidden">
+                    <div class="flex items-center gap-4 mb-6">
+                        <button id="genreBackBtn" class="p-2 hover:bg-dark-100 rounded-lg transition-colors" aria-label="Back">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                            </svg>
+                        </button>
+                        <div>
+                            <h2 id="genreTitle" class="text-2xl font-bold">Genre</h2>
+                            <p id="genreTrackCount" class="text-sm text-gray-400"></p>
+                        </div>
+                    </div>
+                    <div id="genreContent" class="space-y-2">
+                        <!-- Genre tracks will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Trending View -->
+                <div id="trendingView" class="view-content hidden">
+                    <h2 class="text-2xl font-bold mb-4">Trending Music</h2>
+                    <div id="trendingContent" class="space-y-2">
+                        <!-- Trending content will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- History View -->
+                <div id="historyView" class="view-content hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold">Recently Played</h2>
+                        <button id="clearHistoryBtn" class="text-red-400 hover:text-red-300 text-sm">Clear History</button>
+                    </div>
+                    <div id="historyContent" class="space-y-2">
+                        <div class="text-center py-12 text-gray-400">
+                            <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p class="text-lg">No listening history yet</p>
+                            <p class="text-sm mt-1">Play some music to see your history here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Liked Songs View -->
+                <div id="likedView" class="view-content hidden">
+                    <!-- Spotify-style Liked Songs Header -->
+                    <div class="bg-gradient-to-b from-purple-900/60 to-transparent -mx-6 -mt-6 px-6 pt-6 pb-8 mb-6 rounded-t-xl">
+                        <div class="flex items-end gap-5">
+                            <div class="w-24 h-24 md:w-40 md:h-40 bg-gradient-to-br from-purple-700 to-blue-400 rounded-lg flex items-center justify-center shadow-2xl shrink-0">
+                                <svg class="w-12 h-12 md:w-20 md:h-20 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                </svg>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-xs uppercase tracking-wider text-gray-300 mb-1">Playlist</p>
+                                <h2 class="text-2xl md:text-4xl font-extrabold text-white mb-2">Liked Songs</h2>
+                                <p id="likedSongsCount" class="text-sm text-gray-300">0 songs</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 mt-6">
+                            <button id="playAllLikedBtn" class="w-12 h-12 bg-primary rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-primary/30">
+                                <svg class="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </button>
+                            <button id="shuffleLikedBtn" class="text-gray-400 hover:text-white transition-colors" title="Shuffle play">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="likedSongsContent" class="space-y-2">
+                        <div class="text-center py-12 text-gray-400">
+                            <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            </svg>
+                            <p class="text-lg">No liked songs yet</p>
+                            <p class="text-sm mt-1">Songs you like will appear here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlists View (all playlists page) -->
+                <div id="playlistsView" class="view-content hidden">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold">My Playlists</h2>
+                        <button id="createPlaylistBtn2" class="bg-primary hover:bg-purple-600 px-4 py-2 rounded-full text-sm transition-colors flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            New Playlist
+                        </button>
+                    </div>
+                    <div id="playlistsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Playlist cards will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Playlist View -->
+                <div id="playlistView" class="view-content hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 id="playlistTitle" class="text-2xl font-bold">Playlist</h2>
+                        <div class="flex gap-2">
+                            <button id="playPlaylistBtn" class="bg-primary hover:bg-purple-600 px-4 py-2 rounded-full text-sm transition-colors">
+                                Play All
+                            </button>
+                            <button id="deletePlaylistBtn" class="text-red-400 hover:text-red-300 text-sm">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                    <div id="playlistContent" class="space-y-2">
+                        <!-- Playlist content will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Settings View -->
+                <div id="settingsView" class="view-content hidden">
+                    <h2 class="text-2xl font-bold mb-6">Settings</h2>
+                    <div class="max-w-2xl space-y-6">
+
+                        <!-- Account -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2"><img src="src/assets/icons/user.png" alt="" class="settings-icon"> Akun</h3>
+                            <div id="accountSection">
+                                <!-- Filled dynamically by auth.js -->
+                            </div>
+                        </div>
+
+                        <!-- About -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center">
+                                    <img src="logo.png" alt="MsicFree" class="w-full h-full object-cover">
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold">MsicFree</h3>
+                                    <p class="text-sm text-gray-400">v2.0 — YouTube IFrame Engine</p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-gray-400 leading-relaxed">
+                                Aplikasi streaming musik gratis yang menggabungkan metadata Deezer dengan audio dari YouTube.
+                                Cari jutaan lagu, buat playlist, dan dengarkan langsung di browser tanpa akun.
+                            </p>
+                        </div>
+
+                        <!-- How It Works -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2"><img src="src/assets/icons/cara kerja.png" alt="" class="settings-icon"> Cara Kerja</h3>
+                            <div class="space-y-4 text-sm">
+                                <div class="flex gap-4 items-start">
+                                    <span class="bg-purple-500/20 text-purple-400 px-2.5 py-1 rounded-lg font-mono text-xs whitespace-nowrap">Step 1</span>
+                                    <div>
+                                        <p class="text-white font-medium">Cari lagu via Deezer</p>
+                                        <p class="text-gray-400">Metadata, cover art, info artis — catalog lengkap jutaan lagu</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4 items-start">
+                                    <span class="bg-cyan-500/20 text-cyan-400 px-2.5 py-1 rounded-lg font-mono text-xs whitespace-nowrap">Step 2</span>
+                                    <div>
+                                        <p class="text-white font-medium">Temukan video YouTube via Piped</p>
+                                        <p class="text-gray-400">Pencarian akurat dengan title matching & durasi — fallback ke unfiltered search</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4 items-start">
+                                    <span class="bg-red-500/20 text-red-400 px-2.5 py-1 rounded-lg font-mono text-xs whitespace-nowrap">Step 3</span>
+                                    <div>
+                                        <p class="text-white font-medium">Putar audio via YouTube IFrame</p>
+                                        <p class="text-gray-400">Hidden player — kualitas audio YouTube standar (AAC ~128kbps)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Audio Sources -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2"><img src="src/assets/icons/sumber audio.png" alt="" class="settings-icon"> Sumber Audio</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
+                                    <div class="flex items-center gap-3">
+                                        <span class="bg-purple-500/20 text-purple-400 px-2.5 py-0.5 rounded font-medium">Deezer</span>
+                                        <span class="text-gray-300">Metadata & pencarian</span>
+                                    </div>
+                                    <span class="text-green-400 text-xs">● Aktif</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
+                                    <div class="flex items-center gap-3">
+                                        <span class="bg-red-500/20 text-red-400 px-2.5 py-0.5 rounded font-medium">YouTube</span>
+                                        <span class="text-gray-300">Playback engine (IFrame API)</span>
+                                    </div>
+                                    <span class="text-green-400 text-xs">● Aktif</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
+                                    <div class="flex items-center gap-3">
+                                        <span class="bg-cyan-500/20 text-cyan-400 px-2.5 py-0.5 rounded font-medium">Piped</span>
+                                        <span class="text-gray-300">Pencarian video YouTube</span>
+                                    </div>
+                                    <span class="text-green-400 text-xs">● Aktif</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
+                                    <div class="flex items-center gap-3">
+                                        <span class="bg-pink-500/20 text-pink-400 px-2.5 py-0.5 rounded font-medium">Jamendo</span>
+                                        <span class="text-gray-300">Musik indie — direct stream 320kbps</span>
+                                    </div>
+                                    <span class="text-gray-500 text-xs" id="jamendoStatusBadge">○ Perlu API Key</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Jamendo API Key -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-2 flex items-center gap-2"><img src="src/assets/icons/key.png" alt="" class="settings-icon"> Jamendo API Key (Opsional)</h3>
+                            <p class="text-sm text-gray-400 mb-4">Untuk akses musik indie berkualitas tinggi (320kbps OGG/MP3). Daftar gratis di <a href="https://devportal.jamendo.com" target="_blank" class="text-primary hover:underline">devportal.jamendo.com</a></p>
+                            <div class="flex gap-3">
+                                <input 
+                                    type="text" 
+                                    id="jamendoKeyInput" 
+                                    placeholder="Masukkan Client ID Jamendo" 
+                                    class="flex-1 bg-dark-100 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary"
+                                >
+                                <button id="saveJamendoKeyBtn" class="bg-primary hover:bg-purple-600 px-6 py-3 rounded-lg transition-colors font-medium">Simpan</button>
+                            </div>
+                            <p id="jamendoStatus" class="text-sm mt-2 text-gray-500"></p>
+                        </div>
+
+                        <!-- Keyboard Shortcuts -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2"><img src="src/assets/icons/keyboard.png" alt="" class="settings-icon"> Keyboard Shortcuts</h3>
+                            <div class="grid grid-cols-2 gap-3 text-sm text-gray-400">
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">Space</kbd> <span>Play / Pause</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">← →</kbd> <span>Seek ±5 detik</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">↑ ↓</kbd> <span>Volume</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">Ctrl+N</kbd> <span>Next track</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">Ctrl+P</kbd> <span>Previous track</span></div>
+                                <div class="flex items-center gap-2"><kbd class="bg-dark-100 px-2.5 py-1 rounded text-gray-300 font-mono text-xs">Esc</kbd> <span>Tutup modal</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Limitations -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-3 flex items-center gap-2"><img src="src/assets/icons/warning.png" alt="" class="settings-icon"> Keterbatasan</h3>
+                            <ul class="space-y-2 text-sm text-gray-400">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-yellow-400 mt-0.5">•</span>
+                                    <span>Custom equalizer tidak tersedia — YouTube IFrame berjalan di cross-origin sandbox. Gunakan extension browser untuk EQ.</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-yellow-400 mt-0.5">•</span>
+                                    <span>Iklan YouTube mungkin muncul sebelum lagu — gunakan ad blocker (uBlock Origin) untuk pengalaman terbaik.</span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="text-yellow-400 mt-0.5">•</span>
+                                    <span>Beberapa lagu mungkin tidak ditemukan di YouTube — sistem akan mencoba pencarian yang lebih luas secara otomatis.</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Credits -->
+                        <div class="bg-dark-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold mb-2 flex items-center gap-2">🤝 Credits & Atribusi</h3>
+                            <p class="text-sm text-gray-400 mb-5">Dibangun di atas fondasi teknologi open-source yang luar biasa.</p>
+                            
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <!-- GitHub -->
+                                <a href="https://github.com/zcraft1176-cloud/Music.git" target="_blank" class="flex items-center gap-3 p-3.5 bg-dark-100 rounded-xl hover:bg-dark-100/80 border border-transparent hover:border-gray-700 transition-all group">
+                                    <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                    </div>
+                                    <p class="text-white font-medium text-sm group-hover:text-purple-300 transition-colors">GitHub</p>
+                                </a>
+
+                                <!-- Vercel -->
+                                <a href="https://vercel.com" target="_blank" class="flex items-center gap-3 p-3.5 bg-dark-100 rounded-xl hover:bg-dark-100/80 border border-transparent hover:border-gray-700 transition-all group">
+                                    <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L24 22H0L12 1z"/></svg>
+                                    </div>
+                                    <p class="text-white font-medium text-sm group-hover:text-purple-300 transition-colors">Vercel</p>
+                                </a>
+
+                                <!-- Firebase -->
+                                <a href="https://firebase.google.com" target="_blank" class="flex items-center gap-3 p-3.5 bg-dark-100 rounded-xl hover:bg-dark-100/80 border border-transparent hover:border-gray-700 transition-all group">
+                                    <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"><path d="M3.89 15.67L6.07 2.35a.42.42 0 01.79-.1l2.32 4.34L3.89 15.67z" fill="#FFA000"/><path d="M20.11 18.36L17.79 3.38a.42.42 0 00-.73-.22L3.89 15.67l7.24 4.22a1.26 1.26 0 001.26 0l7.72-1.53z" fill="#F57C00"/><path d="M10.63 10.95l-1.75-3.36L3.89 15.67l6.74-4.72z" fill="#FFCA28"/><path d="M20.11 18.36l-2.32-14.98a.42.42 0 00-.73-.22l-13.17 12.5 7.24 4.23a1.26 1.26 0 001.26 0l7.72-1.53z" fill="#FFA000"/></svg>
+                                    </div>
+                                    <p class="text-white font-medium text-sm group-hover:text-yellow-300 transition-colors">Firebase</p>
+                                </a>
+
+                                <!-- TailwindCSS -->
+                                <a href="https://tailwindcss.com" target="_blank" class="flex items-center gap-3 p-3.5 bg-dark-100 rounded-xl hover:bg-dark-100/80 border border-transparent hover:border-gray-700 transition-all group">
+                                    <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 6.036c-2.667 0-4.333 1.325-5 3.976 1-1.325 2.167-1.822 3.5-1.491.761.189 1.305.738 1.906 1.345C13.387 10.855 14.522 12 17 12c2.667 0 4.333-1.325 5-3.976-1 1.325-2.166 1.822-3.5 1.491-.761-.189-1.305-.738-1.907-1.345-.98-.99-2.114-2.134-4.593-2.134zM7 12c-2.667 0-4.333 1.325-5 3.976 1-1.326 2.167-1.822 3.5-1.491.761.189 1.305.738 1.907 1.345.98.989 2.114 2.134 4.593 2.134 2.667 0 4.333-1.325 5-3.976-1 1.325-2.167 1.822-3.5 1.491-.761-.189-1.305-.738-1.906-1.345C10.613 13.145 9.478 12 7 12z" fill="#38BDF8"/></svg>
+                                    </div>
+                                    <p class="text-white font-medium text-sm group-hover:text-sky-300 transition-colors">Tailwind CSS</p>
+                                </a>
+
+                                <!-- SortableJS -->
+                                <a href="https://sortablejs.github.io/Sortable/" target="_blank" class="flex items-center gap-3 p-3.5 bg-dark-100 rounded-xl hover:bg-dark-100/80 border border-transparent hover:border-gray-700 transition-all group">
+                                    <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="8" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+                                    </div>
+                                    <p class="text-white font-medium text-sm group-hover:text-green-300 transition-colors">SortableJS</p>
+                                </a>
+
+                                <!-- Freepik -->
+                                <a href="https://www.freepik.com" target="_blank" class="flex items-center gap-3 p-3.5 bg-dark-100 rounded-xl hover:bg-dark-100/80 border border-transparent hover:border-gray-700 transition-all group">
+                                    <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M7.5 4.21l4.5 2.6 4.5-2.6M7.5 19.79V14.6L3 12m18 0l-4.5 2.6v5.19" stroke="white" stroke-width="1" fill="none"/></svg>
+                                    </div>
+                                    <p class="text-white font-medium text-sm group-hover:text-blue-300 transition-colors">Freepik</p>
+                                </a>
+                            </div>
+
+                            <p class="text-xs text-gray-600 mt-5 text-center">Dibuat oleh <span class="text-gray-400">zcraft1176</span></p>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Player Bar -->
+    <div id="playerBar" class="fixed bottom-0 left-0 right-0 bg-dark-300 border-t border-gray-800 px-4 py-3 z-50">
+        <div class="flex items-center gap-4 max-w-screen-2xl mx-auto px-6">
+            <!-- Track Info -->
+            <div class="flex items-center gap-3 w-56 shrink-0 pl-2">
+                <div id="playerCover" class="w-14 h-14 bg-dark-100 rounded-lg flex items-center justify-center overflow-hidden">
+                    <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p id="playerTitle" class="text-sm font-medium truncate">No track selected</p>
+                    <p id="playerArtist" class="text-xs text-gray-400 truncate">-</p>
+                    <!-- Mobile: time display under title -->
+                    <p id="mobileTimeDisplay" class="text-xs text-gray-500 hidden"><span id="mobileCurrentTime">0:00</span> / <span id="mobileDuration">0:00</span></p>
+                </div>
+                <!-- Desktop Like Button -->
+                <button id="desktopLikeBtn" class="hidden md:block p-1.5 text-gray-500 hover:text-primary transition-all hover:scale-110 shrink-0" title="Like">
+                    <svg class="w-5 h-5 like-icon-outline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                    <svg class="w-5 h-5 like-icon-filled hidden text-primary" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                </button>
+                <!-- Mobile: inline controls -->
+                <div id="mobileInlineControls" class="hidden items-center gap-3 flex-shrink-0">
+                    <button id="mobilePrevBtn" class="text-gray-400 active:text-white">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                    </button>
+                    <button id="mobilePlayPauseBtn" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-dark-400 active:scale-95 transition-transform">
+                        <svg id="mobilePlayIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="mobilePauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    </button>
+                    <button id="mobileNextBtn" class="text-gray-400 active:text-white">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player Controls -->
+            <div class="flex-1 flex flex-col items-center gap-2">
+                <div class="flex items-center gap-4">
+                    <button id="shuffleBtn" class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                        </svg>
+                    </button>
+                    <button id="prevBtn" class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                        </svg>
+                    </button>
+                    <button id="playPauseBtn" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-dark-400 hover:scale-105 transition-transform">
+                        <svg id="playIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <svg id="pauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        </svg>
+                    </button>
+                    <button id="nextBtn" class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                        </svg>
+                    </button>
+                    <button id="repeatBtn" class="text-gray-400 hover:text-white transition-colors relative" title="Repeat off">
+                        <!-- Repeat Off (default) -->
+                        <svg id="repeatIconNone" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        <!-- Repeat All -->
+                        <svg id="repeatIconAll" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 1l4 4-4 4"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v2a4 4 0 01-4 4H3"/>
+                        </svg>
+                        <!-- Repeat One -->
+                        <svg id="repeatIconOne" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 1l4 4-4 4"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v2a4 4 0 01-4 4H3"/>
+                            <text x="12" y="15" text-anchor="middle" fill="currentColor" stroke="none" font-size="8" font-weight="bold">1</text>
+                        </svg>
+                    </button>
+                </div>
+                <div class="w-full flex items-center gap-2 max-w-lg">
+                    <span id="currentTime" class="text-xs text-gray-400 w-10 text-right">0:00</span>
+                    <div class="flex-1 h-1 bg-dark-100 rounded-full cursor-pointer group relative" id="progressBar">
+                        <div id="progressFill" class="h-full bg-primary rounded-full relative" style="width: 0%">
+                            <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </div>
+                    </div>
+                    <span id="duration" class="text-xs text-gray-400 w-10">0:00</span>
+                </div>
+            </div>
+
+            <!-- Volume & Quality -->
+            <div class="flex items-center gap-2.5 w-56 shrink-0 justify-end pr-2">
+                <span id="qualityBadge" class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">-</span>
+                <button id="volumeBtn" class="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                    <svg id="volumeIconHigh" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                    <svg id="volumeIconLow" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M7 9v6h4l5 5V4l-5 5H7zm9.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                    </svg>
+                    <svg id="volumeIconMute" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4l-1.88 1.88L12 7.76V4z"/>
+                    </svg>
+                </button>
+                <div class="flex-1 h-1.5 bg-dark-100 rounded-full cursor-pointer group relative" id="volumeBar">
+                    <div id="volumeFill" class="h-full bg-gray-400 group-hover:bg-primary rounded-full relative transition-colors" style="width: 80%">
+                        <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"></div>
+                    </div>
+                </div>
+                <span id="volumePercent" class="text-xs text-gray-500 w-8 text-right tabular-nums">80%</span>
+            </div>
+        </div>
+
+        <!-- Audio Visualizer -->
+        <div id="visualizer" class="absolute bottom-full left-0 right-0 h-8 pointer-events-none">
+            <canvas id="visualizerCanvas" class="w-full h-full"></canvas>
+        </div>
+    </div>
+
+    <!-- Expanded Mobile Player (Full-Screen Overlay) -->
+    <div id="mobilePlayerExpanded" class="mobile-player-expanded">
+        <div class="mobile-player-inner">
+            <!-- Drag handle to collapse -->
+            <button id="mobilePlayerCollapse" class="mobile-player-handle" aria-label="Collapse player">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <!-- Large Cover Art -->
+            <div class="mobile-player-cover-wrap">
+                <div id="mobilePlayerCoverLarge" class="mobile-player-cover">
+                    <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Track Info -->
+            <div class="mobile-player-info">
+                <div class="min-w-0 flex-1">
+                    <p id="mobileExpTitle" class="text-lg font-semibold truncate text-white">No track selected</p>
+                    <div class="flex items-center gap-2">
+                        <p id="mobileExpArtist" class="text-sm text-gray-400 truncate">-</p>
+                        <span id="mobileExpQualityBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-400 flex-shrink-0">-</span>
+                    </div>
+                </div>
+                <button id="mobileExpFavorite" class="text-gray-500 hover:text-primary transition-colors" aria-label="Favorite">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                </button>
+                <button id="mobileExpDownload" class="text-gray-500 hover:text-secondary transition-colors" aria-label="Download">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                </button>
+
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mobile-player-progress">
+                <div class="mobile-progress-bar" id="mobileExpProgressBar">
+                    <div id="mobileExpProgressFill" class="mobile-progress-fill" style="width: 0%">
+                        <div class="mobile-progress-thumb"></div>
+                    </div>
+                </div>
+                <div class="mobile-progress-times">
+                    <span id="mobileExpCurrentTime">0:00</span>
+                    <span id="mobileExpDuration">0:00</span>
+                </div>
+            </div>
+
+            <!-- Main Controls -->
+            <div class="mobile-player-controls">
+                <button id="mobileExpShuffle" class="mobile-ctrl-btn text-gray-400" aria-label="Shuffle">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                    </svg>
+                </button>
+                <button id="mobileExpPrev" class="mobile-ctrl-btn text-white" aria-label="Previous track">
+                    <svg class="w-9 h-9" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button id="mobileExpPlayPause" class="mobile-play-btn" aria-label="Play or Pause">
+                    <svg id="mobileExpPlayIcon" class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="mobileExpPauseIcon" class="w-10 h-10 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+                <button id="mobileExpNext" class="mobile-ctrl-btn text-white" aria-label="Next track">
+                    <svg class="w-9 h-9" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+                <button id="mobileExpRepeat" class="mobile-ctrl-btn text-gray-400" aria-label="Repeat">
+                    <svg id="mobileExpRepeatNone" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    <svg id="mobileExpRepeatAll" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 1l4 4-4 4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v2a4 4 0 01-4 4H3"/>
+                    </svg>
+                    <svg id="mobileExpRepeatOne" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 1l4 4-4 4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v2a4 4 0 01-4 4H3"/><text x="12" y="15" text-anchor="middle" fill="currentColor" stroke="none" font-size="8" font-weight="bold">1</text>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-[70] space-y-2"></div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <button data-view="home" class="mobile-nav-btn active" aria-label="Home">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+            <span>Home</span>
+        </button>
+        <button data-view="search" class="mobile-nav-btn" aria-label="Search">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <span>Search</span>
+        </button>
+        <button data-view="trending" class="mobile-nav-btn" aria-label="Trending">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+            </svg>
+            <span>Trending</span>
+        </button>
+        <button data-view="liked" class="mobile-nav-btn" aria-label="Liked">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+            </svg>
+            <span>Liked</span>
+        </button>
+        <button id="mobileMenuBtnBottom" class="mobile-nav-btn" aria-label="More">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+            <span>More</span>
+        </button>
+    </nav>
+
+    <!-- Create Playlist Modal -->
+    <div id="createPlaylistModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-dark-200 rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold mb-4">Create New Playlist</h3>
+            <input 
+                type="text" 
+                id="playlistNameInput" 
+                placeholder="Playlist name" 
+                class="w-full bg-dark-100 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary mb-4"
+            >
+            <div class="flex gap-3 justify-end">
+                <button id="cancelPlaylistBtn" class="px-4 py-2 text-gray-400 hover:text-white transition-colors">Cancel</button>
+                <button id="confirmPlaylistBtn" class="px-6 py-2 bg-primary hover:bg-purple-600 rounded-lg transition-colors">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add to Playlist Modal -->
+    <div id="addToPlaylistModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-dark-200 rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold mb-4">Add to Playlist</h3>
+            <div id="playlistOptions" class="space-y-2 max-h-60 overflow-y-auto">
+                <!-- Playlist options will be rendered here -->
+            </div>
+            <div class="flex gap-3 justify-end mt-4">
+                <button id="cancelAddToPlaylistBtn" class="px-4 py-2 text-gray-400 hover:text-white transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="src/js/api.js?v=2.5"></script>
+    <script src="src/js/auth.js?v=2.5"></script>
+    <script src="src/js/player.js?v=2.5"></script>
+    <script src="src/js/playlist.js?v=2.5"></script>
+    <script src="src/js/liked.js?v=2.5"></script>
+
+    <script src="src/js/search.js?v=2.5"></script>
+    <script src="src/js/ui.js?v=2.5"></script>
+    <script src="src/js/download.js?v=2.5"></script>
+    <script src="src/js/app.js?v=2.5"></script>
+</body>
+</html>

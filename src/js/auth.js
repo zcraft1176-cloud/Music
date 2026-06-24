@@ -14,6 +14,13 @@ const Auth = {
     async init() {
         if (this._initialized) return;
 
+        // Guard: Firebase might be blocked by ad blockers
+        if (typeof firebase === 'undefined') {
+            console.warn('Firebase SDK not available (may be blocked by ad blocker). Running in offline mode.');
+            this._initialized = true;
+            return;
+        }
+
         try {
             // Initialize Firebase
             const app = firebase.initializeApp({
@@ -47,6 +54,8 @@ const Auth = {
             });
         } catch (e) {
             console.error('Firebase init error:', e);
+            this._initialized = true; // Still mark initialized to prevent re-init loops
+            UI.showToast?.('Cloud features unavailable. Playing in offline mode.', 'warning');
         }
     },
 

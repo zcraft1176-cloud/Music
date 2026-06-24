@@ -230,9 +230,12 @@ const PlaylistManager = {
         playlist.updatedAt = new Date().toISOString();
         this.savePlaylists();
 
-        // Sync to cloud
+        // Debounce cloud sync — wait 1s after last reorder to avoid excessive writes
         if (Auth.isLoggedIn()) {
-            await this._cloudSavePlaylist(playlist);
+            if (this._reorderSyncTimer) clearTimeout(this._reorderSyncTimer);
+            this._reorderSyncTimer = setTimeout(() => {
+                this._cloudSavePlaylist(playlist);
+            }, 1000);
         }
     },
 

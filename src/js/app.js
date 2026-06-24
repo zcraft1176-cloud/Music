@@ -18,6 +18,7 @@ const App = {
             PlaylistManager.init();
             LikedSongs.init();
             Search.init();
+            if (typeof Downloader !== 'undefined') Downloader.init();
 
             // Load initial content
             await this.loadInitialContent();

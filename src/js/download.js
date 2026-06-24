@@ -1,11 +1,16 @@
 /**
- * Download Module
- * Downloads tracks as MP3 using yt-dlp + ffmpeg backend
+ * Download Module v3 — Cobalt API Strategy
+ * 
+ * Downloads tracks as MP3 using Cobalt API (cobalt.tools)
  * 
  * Strategy:
- * - ALL tracks (Deezer/YouTube): resolve to YouTube videoId → yt-dlp → MP3
- * - Local (XAMPP): download-proxy.php handles yt-dlp + ffmpeg conversion
- * - Vercel: redirects to cobalt.tools (no yt-dlp available)
+ *   1. Resolve YouTube videoId for the track
+ *   2. Send YouTube URL to Cobalt API (via /api/cobalt proxy)
+ *   3. Cobalt returns tunnel/redirect URL → browser downloads
+ * 
+ * Fallbacks:
+ *   - Local (XAMPP): yt-dlp + ffmpeg via download-proxy.php
+ *   - If Cobalt fails: redirect to cobalt.tools web UI
  */
 
 const Downloader = {
@@ -16,15 +21,18 @@ const Downloader = {
      * Initialize download listeners
      */
     init() {
+        // Mobile expanded player download button
         document.getElementById('mobileExpDownload')?.addEventListener('click', () => {
             if (Player.currentTrack) {
                 this.download(Player.currentTrack);
+            } else {
+                UI.showToast('No track is playing', 'warning');
             }
         });
     },
 
     /**
-     * Resolve YouTube videoId for a track (search via Piped/Invidious)
+     * Resolve YouTube videoId for a track
      */
     async _resolveVideoId(track) {
         // Already have videoId
@@ -36,7 +44,7 @@ const Downloader = {
         }
 
         // Need to search YouTube for this track
-        console.log('[Download] Resolving YouTube videoId...');
+        console.log('[Download] Resolving YouTube videoId via search...');
         const resolved = await MusicAPI.resolveAudioUrl(track);
         if (resolved && track.videoId) {
             return track.videoId;
@@ -57,65 +65,144 @@ const Downloader = {
         }
 
         if (this.activeDownloads.has(track.id)) {
-            UI.showToast('Already downloading...', 'warning');
+            UI.showToast('Already downloading this track...', 'warning');
             return;
         }
 
         this.activeDownloads.set(track.id, true);
         this._updateDownloadButton(track.id, 'loading');
 
-        const baseName = this._sanitizeFilename(`${track.artist} - ${track.title}`);
-
         try {
             // Step 1: Find YouTube videoId for this track
-            UI.showToast(`Finding: ${track.title}...`, 'info');
+            UI.showToast(`🔍 Mencari: ${track.title}...`, 'info');
             const videoId = await this._resolveVideoId(track);
 
             if (!videoId) {
-                throw new Error('Could not find YouTube source for this track');
+                throw new Error('Tidak dapat menemukan sumber YouTube untuk lagu ini');
             }
 
-            // Step 2: Download as MP3
+            const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+            // Step 2: Download method based on environment
             if (this.isLocal) {
                 // LOCAL: yt-dlp + ffmpeg via PHP proxy → direct MP3 download
-                UI.showToast(`Downloading MP3: ${track.title}... (tunggu 15-20 detik)`, 'info');
-                const proxyUrl = `download-proxy.php?videoId=${encodeURIComponent(videoId)}&title=${encodeURIComponent(baseName)}`;
-                
-                // Direct navigation — browser handles Content-Disposition: attachment
-                window.location.href = proxyUrl;
-
-                UI.showToast(`✅ Download started: ${track.title}.mp3`, 'success');
+                await this._downloadLocal(track, videoId);
             } else {
-                // VERCEL: Get direct audio URL from Piped, download via Vercel proxy
-                UI.showToast(`Preparing download: ${track.title}...`, 'info');
-                
-                const audioData = await MusicAPI.getDirectAudioUrl(track);
-                
-                if (audioData && audioData.url) {
-                    // Route through Vercel serverless proxy for proper download headers
-                    const ext = audioData.format === 'webm' ? 'webm' : audioData.format === 'm4a' ? 'm4a' : 'mp3';
-                    const filename = `${baseName}.${ext}`;
-                    const downloadUrl = `/api/download?url=${encodeURIComponent(audioData.url)}&filename=${encodeURIComponent(filename)}`;
-                    
-                    UI.showToast(`Downloading: ${track.title}...`, 'info');
-                    window.location.href = downloadUrl;
-                    UI.showToast(`✅ Download started: ${filename}`, 'success');
-                } else {
-                    // Fallback: open cobalt.tools
-                    const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                    UI.showToast('Opening external downloader...', 'warning');
-                    window.open(`https://cobalt.tools/#url=${encodeURIComponent(ytUrl)}`, '_blank');
-                    UI.showToast('Complete the download on the opened page', 'info');
-                }
+                // VERCEL: Use Cobalt API → tunnel URL → browser download
+                await this._downloadViaCobalt(track, ytUrl, videoId);
             }
 
         } catch (error) {
             console.error('[Download] Error:', error);
-            UI.showToast(`Download failed: ${error.message}`, 'error');
+            UI.showToast(`❌ Download gagal: ${error.message}`, 'error');
         } finally {
             this.activeDownloads.delete(track.id);
             this._updateDownloadButton(track.id, 'idle');
         }
+    },
+
+    /**
+     * Download via local yt-dlp (XAMPP environment)
+     */
+    async _downloadLocal(track, videoId) {
+        const baseName = this._sanitizeFilename(`${track.artist} - ${track.title}`);
+        UI.showToast(`⬇️ Downloading MP3: ${track.title}... (tunggu 15-20 detik)`, 'info');
+        
+        const proxyUrl = `download-proxy.php?videoId=${encodeURIComponent(videoId)}&title=${encodeURIComponent(baseName)}`;
+        window.location.href = proxyUrl;
+        
+        UI.showToast(`✅ Download dimulai: ${track.title}.mp3`, 'success');
+    },
+
+    /**
+     * Download via Cobalt API (Vercel environment)
+     */
+    async _downloadViaCobalt(track, ytUrl, videoId) {
+        UI.showToast(`⬇️ Memproses download: ${track.title}...`, 'info');
+
+        try {
+            const response = await fetch('/api/cobalt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: ytUrl,
+                    audioFormat: 'mp3',
+                    audioBitrate: '128'
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                console.warn('[Download] Cobalt API failed:', data);
+                // Fallback to Cobalt web UI
+                this._fallbackToCobaltWeb(ytUrl, track.title);
+                return;
+            }
+
+            // Handle different response types from Cobalt
+            if (data.status === 'tunnel' || data.status === 'redirect') {
+                // Direct download URL — trigger browser download
+                const downloadUrl = data.url;
+                const filename = data.filename || this._sanitizeFilename(`${track.artist} - ${track.title}.mp3`);
+                
+                UI.showToast(`⬇️ Mengunduh: ${track.title}...`, 'info');
+                
+                // Use a hidden link to trigger download
+                this._triggerDownload(downloadUrl, filename);
+                
+                UI.showToast(`✅ Download dimulai: ${track.title}`, 'success');
+
+            } else if (data.status === 'picker') {
+                // Multiple options — pick the first audio one
+                const audioItem = data.picker?.find(p => p.type === 'video' || p.type === 'audio') || data.picker?.[0];
+                if (audioItem && audioItem.url) {
+                    this._triggerDownload(audioItem.url, `${track.artist} - ${track.title}.mp3`);
+                    UI.showToast(`✅ Download dimulai: ${track.title}`, 'success');
+                } else {
+                    this._fallbackToCobaltWeb(ytUrl, track.title);
+                }
+
+            } else {
+                console.warn('[Download] Unexpected Cobalt response status:', data.status);
+                this._fallbackToCobaltWeb(ytUrl, track.title);
+            }
+
+        } catch (error) {
+            console.error('[Download] Cobalt API error:', error);
+            // Fallback to Cobalt web UI
+            this._fallbackToCobaltWeb(ytUrl, track.title);
+        }
+    },
+
+    /**
+     * Fallback: open Cobalt web UI in new tab
+     */
+    _fallbackToCobaltWeb(ytUrl, title) {
+        UI.showToast(`🔄 Membuka downloader eksternal untuk: ${title}...`, 'warning');
+        window.open(`https://cobalt.tools/#url=${encodeURIComponent(ytUrl)}`, '_blank');
+        UI.showToast('Selesaikan download di halaman yang terbuka', 'info');
+    },
+
+    /**
+     * Trigger browser file download via hidden anchor
+     */
+    _triggerDownload(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup after short delay
+        setTimeout(() => {
+            document.body.removeChild(a);
+        }, 1000);
     },
 
     /**
@@ -125,9 +212,15 @@ const Downloader = {
         document.querySelectorAll(`.download-track-btn[data-track-id="${trackId}"]`).forEach(btn => {
             this._setButtonState(btn, state);
         });
-        document.querySelectorAll('.download-liked-btn').forEach(btn => {
-            this._setButtonState(btn, state);
-        });
+        // Also update mobile expanded player download button
+        const mobileBtn = document.getElementById('mobileExpDownload');
+        if (mobileBtn && Player.currentTrack?.id === trackId) {
+            if (state === 'loading') {
+                mobileBtn.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                mobileBtn.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
     },
 
     _setButtonState(btn, state) {

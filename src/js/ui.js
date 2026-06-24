@@ -171,89 +171,12 @@ const UI = {
         }
     },
 
-    /**
-     * Render trending tracks on home page
-     */
-    renderTrending(tracks) {
-        const container = document.getElementById('trendingTracks');
-        if (!container) return;
-
-        if (tracks.length === 0) {
-            container.innerHTML = '<p class="text-gray-400 col-span-full">No trending tracks available</p>';
-            return;
-        }
-
-        container.innerHTML = tracks.map((track, index) => this.renderTrackCard(track, index)).join('');
-        this.attachTrackListeners(container);
-    },
-
-    /**
-     * Render full trending view
-     */
-    renderTrendingFull(tracks) {
-        const container = document.getElementById('trendingContent');
-        if (!container) return;
-
-        if (tracks.length === 0) {
-            container.innerHTML = '<p class="text-gray-400">No trending tracks available</p>';
-            return;
-        }
-
-        container.innerHTML = tracks.map((track, index) => this.renderTrackRow(track, index)).join('');
-        this.attachTrackListeners(container);
-    },
-
-    /**
-     * Render search results
-     */
-    renderSearchResults(tracks, query) {
-        const container = document.getElementById('searchResults');
-        if (!container) return;
-
-        if (tracks.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-12">
-                    <svg class="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <p class="text-gray-400">No results found for "${query}"</p>
-                    <p class="text-gray-500 text-sm mt-2">Try different keywords or uncheck HD filter</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = `
-            <p class="text-sm text-gray-400 mb-4">Found ${tracks.length} results for "${query}"</p>
-            ${tracks.map((track, index) => this.renderTrackRow(track, index)).join('')}
-        `;
-        this.attachTrackListeners(container);
-    },
-
-    /**
-     * Render browse results by genre
-     */
-    renderBrowseResults(tracks, genre) {
-        const container = document.getElementById('browseContent');
-        if (!container) return;
-
-        container.innerHTML = `
-            <section>
-                <h3 class="text-lg font-bold mb-3 capitalize">${genre} Tracks</h3>
-                ${tracks.length === 0 
-                    ? '<p class="text-gray-400">No tracks found for this genre</p>'
-                    : tracks.map((track, index) => this.renderTrackRow(track, index)).join('')
-                }
-            </section>
-        `;
-        this.attachTrackListeners(container);
-    },
 
     /**
      * Render genre detail results into genreView
      */
     renderGenreResults(tracks, genreName, hasMore = false) {
-        this._renderedTracks = tracks;
+        this._tracksByView.genre = tracks;
         const container = document.getElementById('genreContent');
         if (!container) return;
 
@@ -299,7 +222,7 @@ const UI = {
      */
     appendGenreTracks(newTracks, startIndex, hasMore) {
         // Update rendered tracks to include all loaded tracks
-        this._renderedTracks = Search._genreState.allTracks;
+        this._tracksByView.genre = Search._genreState.allTracks;
         const tracksList = document.getElementById('genreTracksList');
         if (!tracksList || newTracks.length === 0) return;
 
@@ -369,31 +292,7 @@ const UI = {
         }).join('');
     },
 
-    /**
-     * Render playlist content
-     */
-    renderPlaylistContent(playlist) {
-        const container = document.getElementById('playlistContent');
-        if (!container) return;
 
-        if (playlist.tracks.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-12">
-                    <svg class="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
-                    </svg>
-                    <p class="text-gray-400">This playlist is empty</p>
-                    <p class="text-gray-500 text-sm mt-2">Search for songs and add them to this playlist</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = playlist.tracks.map((track, index) => 
-            this.renderTrackRow(track, index, true, playlist.id)
-        ).join('');
-        this.attachTrackListeners(container);
-    },
 
     /**
      * Render track card (grid style)
@@ -601,46 +500,36 @@ const UI = {
     getCurrentTracks() {
         switch (this.currentView) {
             case 'search':
-                return this.getTracksFromContainer('searchResults');
+                return this._tracksByView.search || [];
             case 'trending':
-                return this.getTracksFromContainer('trendingContent');
+                return this._tracksByView.trending || [];
             case 'genre':
-                return Search._genreState?.allTracks || this._renderedTracks || [];
+                return Search._genreState?.allTracks || this._tracksByView.genre || [];
             case 'history':
                 return this._history || [];
             case 'browse':
-                return this.getTracksFromContainer('browseContent');
+                return this._tracksByView.browse || [];
             case 'queue':
                 return Player.queue;
             case 'playlist':
                 const playlist = PlaylistManager.playlists.find(p => p.id === PlaylistManager.currentPlaylistId);
                 return playlist?.tracks || [];
+            case 'liked':
+                return typeof LikedSongs !== 'undefined' ? LikedSongs.songs : [];
             case 'home':
             default:
-                return this.getTracksFromContainer('trendingTracks');
+                return this._tracksByView.home || [];
         }
     },
 
-    /**
-     * Extract tracks data from a container's track cards
-     */
-    getTracksFromContainer(containerId) {
-        // This is a simplified approach - in production you'd want a proper state management
-        const container = document.getElementById(containerId);
-        if (!container) return [];
-        
-        // We'll rely on the tracks being stored in the UI module when rendered
-        return this._renderedTracks || [];
-    },
-
-    // Store rendered tracks for reference
-    _renderedTracks: [],
+    // Per-view track storage (prevents cross-view contamination)
+    _tracksByView: {},
 
     /**
      * Override render methods to store tracks
      */
     renderSearchResults(tracks, query) {
-        this._renderedTracks = tracks;
+        this._tracksByView.search = tracks;
         const container = document.getElementById('searchResults');
         if (!container) return;
 
@@ -665,7 +554,7 @@ const UI = {
     },
 
     renderTrending(tracks) {
-        this._renderedTracks = tracks;
+        this._tracksByView.home = tracks;
         const container = document.getElementById('trendingTracks');
         if (!container) return;
 
@@ -679,7 +568,7 @@ const UI = {
     },
 
     renderTrendingFull(tracks) {
-        this._renderedTracks = tracks;
+        this._tracksByView.trending = tracks;
         const container = document.getElementById('trendingContent');
         if (!container) return;
 
@@ -693,7 +582,7 @@ const UI = {
     },
 
     renderBrowseResults(tracks, genre) {
-        this._renderedTracks = tracks;
+        this._tracksByView.browse = tracks;
         const container = document.getElementById('browseContent');
         if (!container) return;
 
@@ -710,7 +599,7 @@ const UI = {
     },
 
     renderPlaylistContent(playlist) {
-        this._renderedTracks = playlist.tracks;
+        this._tracksByView.playlist = playlist.tracks;
         const container = document.getElementById('playlistContent');
         if (!container) return;
 
@@ -740,7 +629,7 @@ const UI = {
         const container = document.getElementById('queueContent');
         if (!container) return;
 
-        this._renderedTracks = Player.queue;
+        this._tracksByView.queue = Player.queue;
 
         if (Player.queue.length === 0) {
             container.innerHTML = `
@@ -839,7 +728,7 @@ const UI = {
         if (!container) return;
 
         this.loadHistory();
-        this._renderedTracks = this._history;
+        this._tracksByView.history = this._history;
 
         if (this._history.length === 0) {
             container.innerHTML = `

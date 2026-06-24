@@ -460,55 +460,105 @@ const PlaylistImporter = {
 
     /**
      * Search a single track on Deezer
-     * Scores results by title + artist similarity to avoid cover versions
+     * - Cleans title (removes feat/with/remix tags that confuse search)
+     * - Multi-attempt: full query → simplified → title only
+     * - Score-based matching (title + artist) to avoid cover versions
      */
     async _searchDeezer(track) {
-        try {
-            const query = track.artist 
-                ? `${track.title} ${track.artist}` 
-                : track.title;
+        const cleanTitle = this._cleanTitle(track.title);
+        const artists = (track.artist || '')
+            .replace(/;/g, ',').split(',').map(a => a.trim()).filter(a => a);
+        const firstArtist = artists[0] || '';
 
-            const results = await MusicAPI.deezer.search(query, 5);
-            if (!results || results.length === 0) return null;
+        // Build search queries (most specific → least specific)
+        const queries = [];
+        if (firstArtist) {
+            queries.push(`${cleanTitle} ${firstArtist}`);
+            // If there are multiple artists, also try just the clean title + first artist
+            if (artists.length > 1) {
+                queries.push(`${cleanTitle} ${firstArtist}`);
+            }
+        }
+        queries.push(cleanTitle); // fallback: title only
 
-            const titleLower = track.title.toLowerCase();
-            const artistLower = (track.artist || '').toLowerCase()
-                .replace(/;/g, ',').split(',').map(a => a.trim());
+        // Deduplicate queries
+        const uniqueQueries = [...new Set(queries)];
 
-            // Score each result
-            let bestScore = -1;
-            let bestMatch = results[0];
+        for (const query of uniqueQueries) {
+            try {
+                const results = await MusicAPI.deezer.search(query, 5);
+                if (!results || results.length === 0) continue;
 
-            for (const r of results) {
-                let score = 0;
-                const rTitle = (r.title || '').toLowerCase();
-                const rArtist = (r.artist || '').toLowerCase();
+                const match = this._scoreBestMatch(results, cleanTitle, artists);
+                if (match) return match;
+            } catch (e) {
+                console.error('Deezer search error for:', query, e);
+            }
+        }
 
-                // Title match (0-50 points)
-                if (rTitle === titleLower) score += 50;
-                else if (rTitle.includes(titleLower) || titleLower.includes(rTitle)) score += 30;
+        return null;
+    },
 
-                // Artist match (0-50 points) — crucial to avoid cover versions
-                if (artistLower.length > 0 && artistLower[0]) {
-                    for (const a of artistLower) {
-                        if (a && rArtist.includes(a)) {
-                            score += 50;
-                            break;
-                        }
-                    }
-                }
+    /**
+     * Clean a track title for better search matching
+     * Removes (feat. ...), (with ...), (As Originally Performed By ...), etc.
+     */
+    _cleanTitle(title) {
+        return title
+            // Remove "(feat. ...)", "(ft. ...)", "(with ...)"
+            .replace(/\s*\((?:feat\.?|ft\.?|with|featuring)\s+[^)]+\)/gi, '')
+            // Remove "[feat. ...]", "[ft. ...]"
+            .replace(/\s*\[(?:feat\.?|ft\.?|with|featuring)\s+[^\]]+\]/gi, '')
+            // Remove "(As Originally Performed By ...)"
+            .replace(/\s*\(As Originally Performed By[^)]*\)/gi, '')
+            // Remove "- feat. ..."
+            .replace(/\s*-\s*(?:feat\.?|ft\.?)\s+.+$/i, '')
+            // Remove trailing whitespace
+            .trim();
+    },
 
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = r;
+    /**
+     * Score results and return the best match
+     */
+    _scoreBestMatch(results, cleanTitle, artists) {
+        const titleLower = cleanTitle.toLowerCase();
+        let bestScore = -1;
+        let bestMatch = null;
+
+        for (const r of results) {
+            let score = 0;
+            const rTitle = (r.title || '').toLowerCase();
+            const rArtist = (r.artist || '').toLowerCase();
+
+            // Title match (0-50 points)
+            if (rTitle === titleLower) {
+                score += 50;
+            } else if (rTitle.includes(titleLower) || titleLower.includes(rTitle)) {
+                score += 35;
+            } else {
+                // Partial word match
+                const titleWords = titleLower.split(/\s+/).filter(w => w.length > 2);
+                const matched = titleWords.filter(w => rTitle.includes(w));
+                score += (matched.length / Math.max(titleWords.length, 1)) * 25;
+            }
+
+            // Artist match (0-50 points) — crucial to avoid cover versions
+            for (const a of artists) {
+                const aLower = a.toLowerCase();
+                if (aLower && rArtist.includes(aLower)) {
+                    score += 50;
+                    break;
                 }
             }
 
-            return bestMatch;
-        } catch (e) {
-            console.error('Deezer search error for:', track.title, e);
-            return null;
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = r;
+            }
         }
+
+        // Only return if we have at least some confidence
+        return bestScore >= 25 ? bestMatch : (results[0] || null);
     },
 
     // ==========================================

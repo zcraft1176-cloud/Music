@@ -1,16 +1,12 @@
 /**
- * Download Module v3 — Cobalt API Strategy
- * 
- * Downloads tracks as MP3 using Cobalt API (cobalt.tools)
+ * Download Module v3.1 — Cobalt Web Redirect
  * 
  * Strategy:
  *   1. Resolve YouTube videoId for the track
- *   2. Send YouTube URL to Cobalt API (via /api/cobalt proxy)
- *   3. Cobalt returns tunnel/redirect URL → browser downloads
+ *   2. Open cobalt.tools with the YouTube URL pre-filled
+ *   3. User clicks download on cobalt.tools (1 klik doang)
  * 
- * Fallbacks:
- *   - Local (XAMPP): yt-dlp + ffmpeg via download-proxy.php
- *   - If Cobalt fails: redirect to cobalt.tools web UI
+ * Local (XAMPP): yt-dlp + ffmpeg via download-proxy.php (tetap sama)
  */
 
 const Downloader = {
@@ -35,15 +31,12 @@ const Downloader = {
      * Resolve YouTube videoId for a track
      */
     async _resolveVideoId(track) {
-        // Already have videoId
         if (track.videoId) return track.videoId;
         
-        // audioUrl is yt:VIDEO_ID format
         if (track.audioUrl && track.audioUrl.startsWith('yt:')) {
             return track.audioUrl.substring(3);
         }
 
-        // Need to search YouTube for this track
         console.log('[Download] Resolving YouTube videoId via search...');
         const resolved = await MusicAPI.resolveAudioUrl(track);
         if (resolved && track.videoId) {
@@ -56,7 +49,7 @@ const Downloader = {
     },
 
     /**
-     * Download a track as MP3
+     * Download a track
      */
     async download(track) {
         if (!track || !track.id) {
@@ -65,7 +58,7 @@ const Downloader = {
         }
 
         if (this.activeDownloads.has(track.id)) {
-            UI.showToast('Already downloading this track...', 'warning');
+            UI.showToast('Already processing this track...', 'warning');
             return;
         }
 
@@ -73,23 +66,17 @@ const Downloader = {
         this._updateDownloadButton(track.id, 'loading');
 
         try {
-            // Step 1: Find YouTube videoId for this track
-            UI.showToast(`🔍 Mencari: ${track.title}...`, 'info');
+            UI.showToast(`🔍 Mencari sumber: ${track.title}...`, 'info');
             const videoId = await this._resolveVideoId(track);
 
             if (!videoId) {
                 throw new Error('Tidak dapat menemukan sumber YouTube untuk lagu ini');
             }
 
-            const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-            // Step 2: Download method based on environment
             if (this.isLocal) {
-                // LOCAL: yt-dlp + ffmpeg via PHP proxy → direct MP3 download
                 await this._downloadLocal(track, videoId);
             } else {
-                // VERCEL: Use Cobalt API → tunnel URL → browser download
-                await this._downloadViaCobalt(track, ytUrl, videoId);
+                this._openCobalt(track, videoId);
             }
 
         } catch (error) {
@@ -102,11 +89,11 @@ const Downloader = {
     },
 
     /**
-     * Download via local yt-dlp (XAMPP environment)
+     * Local download via yt-dlp (XAMPP)
      */
     async _downloadLocal(track, videoId) {
         const baseName = this._sanitizeFilename(`${track.artist} - ${track.title}`);
-        UI.showToast(`⬇️ Downloading MP3: ${track.title}... (tunggu 15-20 detik)`, 'info');
+        UI.showToast(`⬇️ Downloading: ${track.title}...`, 'info');
         
         const proxyUrl = `download-proxy.php?videoId=${encodeURIComponent(videoId)}&title=${encodeURIComponent(baseName)}`;
         window.location.href = proxyUrl;
@@ -115,104 +102,26 @@ const Downloader = {
     },
 
     /**
-     * Download via Cobalt API (Vercel environment)
+     * Open cobalt.tools with YouTube URL pre-filled
      */
-    async _downloadViaCobalt(track, ytUrl, videoId) {
-        UI.showToast(`⬇️ Memproses download: ${track.title}...`, 'info');
-
-        try {
-            const response = await fetch('/api/cobalt', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    url: ytUrl,
-                    audioFormat: 'mp3',
-                    audioBitrate: '128'
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                console.warn('[Download] Cobalt API failed:', data);
-                // Fallback to Cobalt web UI
-                this._fallbackToCobaltWeb(ytUrl, track.title);
-                return;
-            }
-
-            // Handle different response types from Cobalt
-            if (data.status === 'tunnel' || data.status === 'redirect') {
-                // Direct download URL — trigger browser download
-                const downloadUrl = data.url;
-                const filename = data.filename || this._sanitizeFilename(`${track.artist} - ${track.title}.mp3`);
-                
-                UI.showToast(`⬇️ Mengunduh: ${track.title}...`, 'info');
-                
-                // Use a hidden link to trigger download
-                this._triggerDownload(downloadUrl, filename);
-                
-                UI.showToast(`✅ Download dimulai: ${track.title}`, 'success');
-
-            } else if (data.status === 'picker') {
-                // Multiple options — pick the first audio one
-                const audioItem = data.picker?.find(p => p.type === 'video' || p.type === 'audio') || data.picker?.[0];
-                if (audioItem && audioItem.url) {
-                    this._triggerDownload(audioItem.url, `${track.artist} - ${track.title}.mp3`);
-                    UI.showToast(`✅ Download dimulai: ${track.title}`, 'success');
-                } else {
-                    this._fallbackToCobaltWeb(ytUrl, track.title);
-                }
-
-            } else {
-                console.warn('[Download] Unexpected Cobalt response status:', data.status);
-                this._fallbackToCobaltWeb(ytUrl, track.title);
-            }
-
-        } catch (error) {
-            console.error('[Download] Cobalt API error:', error);
-            // Fallback to Cobalt web UI
-            this._fallbackToCobaltWeb(ytUrl, track.title);
-        }
-    },
-
-    /**
-     * Fallback: open Cobalt web UI in new tab
-     */
-    _fallbackToCobaltWeb(ytUrl, title) {
-        UI.showToast(`🔄 Membuka downloader eksternal untuk: ${title}...`, 'warning');
-        window.open(`https://cobalt.tools/#url=${encodeURIComponent(ytUrl)}`, '_blank');
-        UI.showToast('Selesaikan download di halaman yang terbuka', 'info');
-    },
-
-    /**
-     * Trigger browser file download via hidden anchor
-     */
-    _triggerDownload(url, filename) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
+    _openCobalt(track, videoId) {
+        const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
         
-        // Cleanup after short delay
-        setTimeout(() => {
-            document.body.removeChild(a);
-        }, 1000);
+        UI.showToast(`🔗 Membuka downloader untuk: ${track.title}`, 'info');
+        
+        // cobalt.tools supports URL hash to pre-fill the input
+        window.open(`https://cobalt.tools/#url=${encodeURIComponent(ytUrl)}`, '_blank');
+        
+        UI.showToast('Klik tombol "paste" lalu download di halaman cobalt', 'success');
     },
 
     /**
-     * Update download button state (loading/idle)
+     * Update download button state
      */
     _updateDownloadButton(trackId, state) {
         document.querySelectorAll(`.download-track-btn[data-track-id="${trackId}"]`).forEach(btn => {
             this._setButtonState(btn, state);
         });
-        // Also update mobile expanded player download button
         const mobileBtn = document.getElementById('mobileExpDownload');
         if (mobileBtn && Player.currentTrack?.id === trackId) {
             if (state === 'loading') {
@@ -240,9 +149,6 @@ const Downloader = {
         }
     },
 
-    /**
-     * Sanitize filename
-     */
     _sanitizeFilename(name) {
         return name
             .replace(/[<>:"/\\|?*]/g, '')

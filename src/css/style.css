@@ -6,6 +6,20 @@
    Custom Styles for MsicFree App
    ======================================== */
 
+/* Custom Scrollbar */
+#sidebarPlaylists::-webkit-scrollbar {
+    width: 4px;
+}
+#sidebarPlaylists::-webkit-scrollbar-track {
+    background: transparent;
+}
+#sidebarPlaylists::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+#sidebarPlaylists::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
 /* Like Button Animation */
 @keyframes like-pop {
     0% { transform: scale(1); }

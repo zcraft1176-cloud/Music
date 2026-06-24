@@ -24,3 +24,9 @@ desktop.ini
 # Binary tools (download separately)
 yt-dlp.exe
 ffmpeg.exe
+
+# Flutter app (separate repo)
+msicfree_app/
+
+# Backup folders
+_backup_*/

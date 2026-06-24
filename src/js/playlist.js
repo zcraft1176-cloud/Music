@@ -169,14 +169,14 @@ const PlaylistManager = {
     /**
      * Add track to playlist
      */
-    async addTrackToPlaylist(playlistId, track) {
+    async addTrackToPlaylist(playlistId, track, silent = false) {
         const playlist = this.playlists.find(p => p.id === playlistId);
         if (!playlist) return;
 
         // Check for duplicates
         const exists = playlist.tracks.some(t => t.id === track.id);
         if (exists) {
-            UI.showToast('Track already in playlist', 'warning');
+            if (!silent) UI.showToast('Track already in playlist', 'warning');
             return;
         }
 
@@ -184,7 +184,7 @@ const PlaylistManager = {
         playlist.updatedAt = new Date().toISOString();
         this.savePlaylists();
         
-        UI.showToast(`Added to "${playlist.name}"`, 'success');
+        if (!silent) UI.showToast(`Added to "${playlist.name}"`, 'success');
         
         // Update view if currently viewing this playlist
         if (this.currentPlaylistId === playlistId) {

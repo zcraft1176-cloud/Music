@@ -7,11 +7,15 @@
         },
         "api/cobalt.js": {
             "maxDuration": 30
+        },
+        "api/spotify.js": {
+            "maxDuration": 30
         }
     },
     "rewrites": [
         { "source": "/api/proxy", "destination": "/api/proxy" },
         { "source": "/api/download", "destination": "/api/download" },
-        { "source": "/api/cobalt", "destination": "/api/cobalt" }
+        { "source": "/api/cobalt", "destination": "/api/cobalt" },
+        { "source": "/api/spotify", "destination": "/api/spotify" }
     ]
 }

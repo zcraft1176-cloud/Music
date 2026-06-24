@@ -17,9 +17,9 @@ const App = {
             Player.init();
             if (typeof Lyrics !== 'undefined') Lyrics.init();
             PlaylistManager.init();
+            if (typeof PlaylistImporter !== 'undefined') PlaylistImporter.init();
             LikedSongs.init();
             Search.init();
-            if (typeof Downloader !== 'undefined') Downloader.init();
 
             // Load initial content
             await this.loadInitialContent();

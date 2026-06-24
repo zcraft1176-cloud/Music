@@ -156,11 +156,18 @@
             <div id="sidebarPlaylists" class="flex-1 p-4 overflow-y-auto">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-semibold text-gray-400 uppercase">Playlists</h3>
-                    <button id="createPlaylistBtn" class="text-primary hover:text-purple-400 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                        </svg>
-                    </button>
+                    <div class="flex items-center gap-1">
+                        <button id="importPlaylistBtn" class="text-gray-400 hover:text-green-400 transition-colors" title="Import Playlist">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                            </svg>
+                        </button>
+                        <button id="createPlaylistBtn" class="text-primary hover:text-purple-400 transition-colors" title="Create Playlist">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div id="playlistList" class="space-y-1">
                     <!-- Playlists will be rendered here -->
@@ -832,17 +839,127 @@
         </div>
     </div>
 
+    <!-- Import Playlist Modal -->
+    <div id="importModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] hidden flex items-center justify-center p-4">
+        <div class="import-modal-container bg-dark-200 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden border border-gray-700/50">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-5 border-b border-gray-700/50">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    Import Playlist
+                </h2>
+                <button id="importModalClose" class="text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- INPUT STEP -->
+            <div id="importInputStep" class="flex-1 overflow-y-auto">
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-700/50">
+                    <button data-import-tab="spotify" class="import-tab active flex-1 py-3 text-sm font-medium text-center transition-colors">🎵 Spotify</button>
+                    <button data-import-tab="text" class="import-tab flex-1 py-3 text-sm font-medium text-center transition-colors">📝 Text</button>
+                    <button data-import-tab="file" class="import-tab flex-1 py-3 text-sm font-medium text-center transition-colors">📁 File</button>
+                </div>
+
+                <!-- Spotify Tab -->
+                <div id="importTab_spotify" class="import-tab-content p-5">
+                    <label class="block text-sm text-gray-400 mb-2">Paste a Spotify playlist URL</label>
+                    <input id="importSpotifyUrl" type="url" 
+                           placeholder="https://open.spotify.com/playlist/..." 
+                           class="w-full bg-dark-300 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-green-500 focus:outline-none transition-colors">
+                    <p class="text-xs text-gray-500 mt-2">Works with public Spotify playlists only</p>
+                    <button id="importSpotifyBtn" class="w-full mt-4 bg-green-600 hover:bg-green-500 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                        </svg>
+                        Import from Spotify
+                    </button>
+                </div>
+
+                <!-- Text Tab -->
+                <div id="importTab_text" class="import-tab-content hidden p-5">
+                    <label class="block text-sm text-gray-400 mb-2">Paste song list (one per line)</label>
+                    <textarea id="importTextArea" rows="8"
+                              placeholder="Blinding Lights - The Weeknd&#10;Shape of You - Ed Sheeran&#10;Bohemian Rhapsody - Queen&#10;...or just song titles"
+                              class="w-full bg-dark-300 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition-colors resize-none text-sm font-mono"></textarea>
+                    <p class="text-xs text-gray-500 mt-2">Format: <code class="text-gray-400">Title - Artist</code> or just <code class="text-gray-400">Title</code></p>
+                    <button id="importTextBtn" class="w-full mt-4 bg-purple-600 hover:bg-purple-500 text-white font-medium py-3 rounded-lg transition-colors">
+                        Import from Text
+                    </button>
+                </div>
+
+                <!-- File Tab -->
+                <div id="importTab_file" class="import-tab-content hidden p-5">
+                    <label class="block text-sm text-gray-400 mb-2">Upload a CSV or Excel file</label>
+                    <div id="importDropZone" class="import-drop-zone">
+                        <svg class="w-10 h-10 text-gray-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <p class="text-sm text-gray-400">Drag & drop file here</p>
+                        <p class="text-xs text-gray-500 mt-1">or click to browse • .csv, .xlsx</p>
+                    </div>
+                    <input id="importFileInput" type="file" accept=".csv,.xlsx,.xls" class="hidden">
+                    <p id="importFileInfo" class="text-xs text-green-400 mt-2 hidden"></p>
+                    <p class="text-xs text-gray-500 mt-2">Expected columns: <code class="text-gray-400">Title</code>, <code class="text-gray-400">Artist</code></p>
+                    <button id="importFileBtn" class="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-lg transition-colors">
+                        Import from File
+                    </button>
+                </div>
+            </div>
+
+            <!-- PROGRESS STEP -->
+            <div id="importProgressStep" class="hidden p-8 flex-1 flex flex-col items-center justify-center">
+                <div class="w-full max-w-xs">
+                    <div class="animate-spin w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p id="importProgressText" class="text-center text-gray-300 mb-4">Processing...</p>
+                    <div class="w-full bg-dark-300 rounded-full h-2 overflow-hidden">
+                        <div id="importProgressBar" class="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PREVIEW STEP -->
+            <div id="importPreviewStep" class="hidden flex-1 flex flex-col overflow-hidden">
+                <div class="p-4 border-b border-gray-700/50">
+                    <input id="importPlaylistName" type="text" 
+                           placeholder="Playlist name" 
+                           class="w-full bg-dark-300 border border-gray-600 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition-colors font-medium">
+                    <div class="flex items-center justify-between mt-3">
+                        <span id="importMatchCount" class="text-xs text-gray-400"></span>
+                        <div class="flex gap-2">
+                            <button id="importSelectAll" class="text-xs text-purple-400 hover:text-purple-300 transition-colors">Toggle All</button>
+                            <button id="importBackBtn" class="text-xs text-gray-400 hover:text-white transition-colors">← Back</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="importPreviewList" class="flex-1 overflow-y-auto p-4 space-y-1"></div>
+                <div class="p-4 border-t border-gray-700/50">
+                    <button id="importCreateBtn" class="w-full bg-green-600 hover:bg-green-500 text-white font-medium py-3 rounded-lg transition-colors">
+                        Create Playlist
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="src/js/api.js?v=2.5"></script>
-    <script src="src/js/auth.js?v=2.5"></script>
-    <script src="src/js/player.js?v=2.5"></script>
-    <script src="src/js/lyrics.js?v=2.5"></script>
-    <script src="src/js/playlist.js?v=2.5"></script>
-    <script src="src/js/liked.js?v=2.5"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="src/js/api.js?v=2.6"></script>
+    <script src="src/js/auth.js?v=2.6"></script>
+    <script src="src/js/player.js?v=2.6"></script>
+    <script src="src/js/lyrics.js?v=2.6"></script>
+    <script src="src/js/playlist.js?v=2.6"></script>
+    <script src="src/js/liked.js?v=2.6"></script>
 
-    <script src="src/js/search.js?v=2.5"></script>
-    <script src="src/js/ui.js?v=2.5"></script>
+    <script src="src/js/search.js?v=2.6"></script>
+    <script src="src/js/ui.js?v=2.6"></script>
+    <script src="src/js/import-playlist.js?v=2.6"></script>
 
-    <script src="src/js/app.js?v=2.5"></script>
+    <script src="src/js/app.js?v=2.6"></script>
 </body>
 </html>

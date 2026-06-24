@@ -1013,3 +1013,62 @@
         font-size: 18px;
     }
 }
+
+/* ============================================
+   Genre Suggestion Chip (in search results)
+   ============================================ */
+
+.genre-suggestion-chip {
+    animation: genreChipSlideIn 0.3s ease-out;
+}
+
+@keyframes genreChipSlideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.genre-chip-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(59, 130, 246, 0.08));
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-left: 3px solid rgba(139, 92, 246, 0.7);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.genre-chip-btn:hover {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.14));
+    border-color: rgba(139, 92, 246, 0.5);
+    transform: translateX(2px);
+}
+
+.genre-chip-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.genre-chip-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.genre-chip-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.genre-chip-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(167, 139, 250, 1);
+}

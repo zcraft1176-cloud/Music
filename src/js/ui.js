@@ -543,8 +543,12 @@ const UI = {
         const hasLyricsResults = tracks.some(t => t._foundViaLyrics);
         const lyricsCount = tracks.filter(t => t._foundViaLyrics).length;
 
+        // Detect if query matches a genre name
+        const matchedGenre = this._findMatchingGenre(query);
+
         if (tracks.length === 0) {
             container.innerHTML = `
+                ${matchedGenre ? this._renderGenreChip(matchedGenre, query) : ''}
                 <div class="text-center py-12">
                     <svg class="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -553,6 +557,7 @@ const UI = {
                     <p class="text-gray-500 text-sm mt-2">💡 Try searching with lyrics — type a phrase from the song!</p>
                 </div>
             `;
+            this._attachGenreChipListener(container);
             return;
         }
 
@@ -561,10 +566,75 @@ const UI = {
             : '';
 
         container.innerHTML = `
+            ${matchedGenre ? this._renderGenreChip(matchedGenre, query) : ''}
             <p class="text-sm text-gray-400 mb-4">Found ${tracks.length} results for "${query}"${lyricsNote}</p>
             ${tracks.map((track, index) => this.renderTrackRow(track, index)).join('')}
         `;
+        this._attachGenreChipListener(container);
         this.attachTrackListeners(container);
+    },
+
+    /**
+     * Find genre that matches search query
+     */
+    _findMatchingGenre(query) {
+        if (!query || query.length < 2) return null;
+        const q = query.toLowerCase().trim();
+        const genres = MusicAPI.getGenres();
+
+        // Exact match first (case insensitive)
+        const exact = genres.find(g => g.name.toLowerCase() === q);
+        if (exact) return exact;
+
+        // Partial match — query starts with genre name or genre starts with query
+        // (e.g. "hip" matches "Hip Hop", "class" matches "Classical")
+        const partial = genres.find(g => {
+            const gLower = g.name.toLowerCase();
+            return gLower.startsWith(q) || q.startsWith(gLower);
+        });
+        if (partial) return partial;
+
+        // Also check for "hip hop" typed as "hiphop" or similar
+        const noSpace = q.replace(/\s+/g, '');
+        const partialNoSpace = genres.find(g => {
+            const gNoSpace = g.name.toLowerCase().replace(/\s+/g, '');
+            return gNoSpace === noSpace;
+        });
+        return partialNoSpace || null;
+    },
+
+    /**
+     * Render the genre suggestion chip HTML
+     */
+    _renderGenreChip(genre, query) {
+        return `
+            <div class="genre-suggestion-chip mb-4">
+                <button class="genre-chip-btn" data-genre-name="${genre.name}" data-genre-id="${genre.id}">
+                    <span class="genre-chip-icon">🎵</span>
+                    <span class="genre-chip-text">
+                        <span class="genre-chip-label">Looking for a genre?</span>
+                        <span class="genre-chip-name">Browse ${genre.name}</span>
+                    </span>
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+        `;
+    },
+
+    /**
+     * Attach click listener for genre chip
+     */
+    _attachGenreChipListener(container) {
+        const chip = container.querySelector('.genre-chip-btn');
+        if (chip) {
+            chip.addEventListener('click', () => {
+                const name = chip.dataset.genreName;
+                const id = parseInt(chip.dataset.genreId);
+                Search.searchByGenre({ name, id });
+            });
+        }
     },
 
     renderTrending(tracks) {

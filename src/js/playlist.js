@@ -252,6 +252,18 @@ const PlaylistManager = {
 
         this.currentPlaylistId = id;
         document.getElementById('playlistTitle').textContent = playlist.name;
+
+        // Show track count and total duration
+        const infoEl = document.getElementById('playlistInfo');
+        if (infoEl) {
+            const count = playlist.tracks.length;
+            const totalSeconds = playlist.tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+            const duration = Player.formatTime(totalSeconds);
+            infoEl.textContent = count === 0
+                ? 'No tracks'
+                : `${count} track${count !== 1 ? 's' : ''} • ${duration}`;
+        }
+
         UI.showView('playlist');
         UI.renderPlaylistContent(playlist);
 

@@ -128,12 +128,15 @@ const UI = {
                        </svg>
                    </div>`;
 
+            const totalSeconds = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+            const duration = Player.formatTime(totalSeconds);
+
             return `
                 <div class="bg-dark-200 rounded-xl overflow-hidden cursor-pointer hover:bg-dark-100 transition-colors playlist-card" data-playlist="${name}">
                     <div class="aspect-square relative">
                         ${coverImg}
                         <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                        <span class="absolute bottom-2 left-3 text-xs text-gray-300">${count} track${count !== 1 ? 's' : ''}</span>
+                        <span class="absolute bottom-2 left-3 text-xs text-gray-300">${count} track${count !== 1 ? 's' : ''} • ${duration}</span>
                     </div>
                     <div class="p-3">
                         <h4 class="font-semibold truncate">${name}</h4>

@@ -182,7 +182,7 @@ const MusicAPI = {
 
         const promises = [
             this.deezer.search(query, limit, signal),
-            this.piped.searchTracks(query, 20)
+            this.piped.searchTracks(query, 50)
         ];
 
         if (this.hasJamendo()) {
@@ -228,7 +228,7 @@ const MusicAPI = {
 
         if (hdOnly) tracks = tracks.filter(t => (t.bitrate || 0) >= 128);
 
-        const finalLimit = Math.max(limit, 50); // Allow more results since we have 2 sources
+        const finalLimit = Math.max(limit, 100); // Allow more results since we have multiple sources
         this.setCache(cacheKey, tracks.slice(0, finalLimit));
         return tracks.slice(0, finalLimit);
     },
@@ -816,22 +816,45 @@ const MusicAPI = {
 
         /**
          * Search YouTube via Piped and return formatted track objects.
-         * Used as a parallel search source alongside Deezer.
+         * Stores nextpage tokens for pagination.
          */
-        async searchTracks(query, limit = 20) {
+        async searchTracks(query, limit = 50) {
             try {
-                const data = await this.pipedFetch(
-                    `/search?q=${encodeURIComponent(query)}&filter=music_songs`
-                );
-                if (!data?.items?.length) {
-                    // Fallback: try without filter
-                    const data2 = await this.pipedFetch(
-                        `/search?q=${encodeURIComponent(query)}`
-                    );
-                    if (!data2?.items?.length) return [];
-                    return this._formatPipedResults(data2.items, limit);
+                const q = encodeURIComponent(query);
+                // Search all YouTube segments in parallel: songs, music videos, and general
+                const [songs, musicVids, general] = await Promise.allSettled([
+                    this.pipedFetch(`/search?q=${q}&filter=music_songs`),
+                    this.pipedFetch(`/search?q=${q}&filter=music_videos`),
+                    this.pipedFetch(`/search?q=${q}`)
+                ]);
+
+                const songData = songs.status === 'fulfilled' ? songs.value : null;
+                const mvData = musicVids.status === 'fulfilled' ? musicVids.value : null;
+                const generalData = general.status === 'fulfilled' ? general.value : null;
+
+                // Store nextpage tokens for pagination
+                this._nextPages = {
+                    query: query,
+                    music_songs: songData?.nextpage || null,
+                    music_videos: mvData?.nextpage || null,
+                    general: generalData?.nextpage || null
+                };
+                this._seenUrls = new Set();
+
+                const songItems = songData?.items || [];
+                const mvItems = mvData?.items || [];
+                const generalItems = generalData?.items || [];
+
+                // Merge: songs first → music videos → general (dedup by URL)
+                const merged = [];
+                for (const item of [...songItems, ...mvItems, ...generalItems]) {
+                    if (!item.url || this._seenUrls.has(item.url)) continue;
+                    this._seenUrls.add(item.url);
+                    merged.push(item);
                 }
-                return this._formatPipedResults(data.items, limit);
+
+                if (!merged.length) return [];
+                return this._formatPipedResults(merged, limit);
             } catch (e) {
                 console.warn('[YT Search] Piped searchTracks failed:', e.message);
                 return [];
@@ -839,11 +862,77 @@ const MusicAPI = {
         },
 
         /**
+         * Load more YouTube results using Piped nextpage pagination.
+         * Returns new tracks (already deduped against previous results).
+         */
+        async loadMoreTracks(limit = 20) {
+            if (!this._nextPages) return [];
+            const { query, music_songs, music_videos, general } = this._nextPages;
+            if (!music_songs && !music_videos && !general) return [];
+
+            try {
+                const q = encodeURIComponent(query);
+                const fetches = [];
+                const segmentKeys = [];
+
+                if (music_songs) {
+                    fetches.push(this.pipedFetch(`/nextpage/search?q=${q}&filter=music_songs&nextpage=${encodeURIComponent(music_songs)}`));
+                    segmentKeys.push('music_songs');
+                }
+                if (music_videos) {
+                    fetches.push(this.pipedFetch(`/nextpage/search?q=${q}&filter=music_videos&nextpage=${encodeURIComponent(music_videos)}`));
+                    segmentKeys.push('music_videos');
+                }
+                if (general) {
+                    fetches.push(this.pipedFetch(`/nextpage/search?q=${q}&nextpage=${encodeURIComponent(general)}`));
+                    segmentKeys.push('general');
+                }
+
+                const results = await Promise.allSettled(fetches);
+
+                // Update nextpage tokens
+                results.forEach((r, i) => {
+                    const key = segmentKeys[i];
+                    if (r.status === 'fulfilled' && r.value) {
+                        this._nextPages[key] = r.value.nextpage || null;
+                    } else {
+                        this._nextPages[key] = null;
+                    }
+                });
+
+                // Merge new items, dedup against already-seen URLs
+                const merged = [];
+                for (const r of results) {
+                    if (r.status !== 'fulfilled' || !r.value?.items) continue;
+                    for (const item of r.value.items) {
+                        if (!item.url || this._seenUrls.has(item.url)) continue;
+                        this._seenUrls.add(item.url);
+                        merged.push(item);
+                    }
+                }
+
+                if (!merged.length) return [];
+                return this._formatPipedResults(merged, limit);
+            } catch (e) {
+                console.warn('[YT Search] loadMoreTracks failed:', e.message);
+                return [];
+            }
+        },
+
+        /**
+         * Check if more YouTube pages are available
+         */
+        hasMorePages() {
+            if (!this._nextPages) return false;
+            return !!(this._nextPages.music_songs || this._nextPages.music_videos || this._nextPages.general);
+        },
+
+        /**
          * Format Piped search results into standard track objects
          */
         _formatPipedResults(items, limit) {
             return items
-                .filter(item => item.type === 'stream' && item.duration > 30 && item.duration < 600)
+                .filter(item => item.type === 'stream' && item.duration > 5)
                 .slice(0, limit)
                 .map(item => {
                     const videoId = this.extractVideoId(item.url);

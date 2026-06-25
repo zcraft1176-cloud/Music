@@ -1127,6 +1127,11 @@ const Player = {
         if (typeof LikedSongs !== 'undefined') {
             LikedSongs.updatePlayerLikeButtons();
         }
+
+        // Update playing indicators on track lists
+        if (typeof UI !== 'undefined') {
+            UI.updatePlayingIndicators();
+        }
     },
 
     /**

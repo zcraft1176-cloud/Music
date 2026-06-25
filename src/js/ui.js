@@ -302,7 +302,7 @@ const UI = {
         const isPlaying = Player.currentTrack?.id === track.id;
 
         return `
-            <div class="track-card bg-dark-200 rounded-xl p-4 cursor-pointer ${isPlaying ? 'playing' : ''}" data-track-index="${index}">
+            <div class="track-card bg-dark-200 rounded-xl p-4 cursor-pointer ${isPlaying ? 'playing' : ''}" data-track-index="${index}" data-track-id="${track.id}">
                 <div class="relative mb-3">
                     <img 
                         src="${track.cover}" 
@@ -342,7 +342,7 @@ const UI = {
         const duration = Player.formatTime(track.duration);
 
         return `
-            <div class="track-card flex items-center gap-4 p-3 rounded-lg cursor-pointer ${isPlaying ? 'playing' : ''}" data-track-index="${index}">
+            <div class="track-card flex items-center gap-4 p-3 rounded-lg cursor-pointer ${isPlaying ? 'playing' : ''}" data-track-index="${index}" data-track-id="${track.id}">
                 ${showRemove ? `
                     <div class="drag-handle shrink-0 p-1" title="Drag to reorder">
                         <svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
@@ -412,6 +412,56 @@ const UI = {
                 </div>
             </div>
         `;
+    },
+
+    /**
+     * Update playing indicators on all visible track cards.
+     * Called from Player.updateUI() whenever the current track changes.
+     */
+    updatePlayingIndicators() {
+        const currentId = Player.currentTrack?.id;
+        // Skip DOM scan if playing state hasn't changed
+        if (this._lastPlayingId === currentId) return;
+        this._lastPlayingId = currentId;
+        document.querySelectorAll('.track-card').forEach(card => {
+            const trackId = card.dataset.trackId;
+            const wasPlaying = card.classList.contains('playing');
+            const isNowPlaying = trackId && trackId === String(currentId);
+
+            if (isNowPlaying && !wasPlaying) {
+                card.classList.add('playing');
+                // Add indicator to the thumbnail area
+                const imgContainer = card.querySelector('.relative');
+                if (imgContainer && !imgContainer.querySelector('.playing-indicator')) {
+                    // Check if it's a card (grid) or row (list) style
+                    const isGrid = card.classList.contains('bg-dark-200');
+                    if (isGrid) {
+                        const indicator = document.createElement('div');
+                        indicator.className = 'absolute bottom-2 right-2 playing-indicator';
+                        indicator.innerHTML = '<span></span><span></span><span></span><span></span>';
+                        imgContainer.appendChild(indicator);
+                    } else {
+                        const overlay = document.createElement('div');
+                        overlay.className = 'absolute inset-0 bg-black/50 rounded flex items-center justify-center';
+                        overlay.innerHTML = '<div class="playing-indicator"><span></span><span></span><span></span><span></span></div>';
+                        imgContainer.appendChild(overlay);
+                    }
+                }
+            } else if (!isNowPlaying && wasPlaying) {
+                card.classList.remove('playing');
+                // Remove indicator overlay
+                const imgContainer = card.querySelector('.relative');
+                if (imgContainer) {
+                    const indicator = imgContainer.querySelector('.playing-indicator');
+                    if (indicator) {
+                        // For row style, remove the parent overlay div
+                        const overlay = indicator.closest('.absolute.inset-0');
+                        if (overlay) overlay.remove();
+                        else indicator.remove();
+                    }
+                }
+            }
+        });
     },
 
     /**
@@ -540,10 +590,17 @@ const UI = {
         const container = document.getElementById('searchResults');
         if (!container) return;
 
+        // Store all tracks for pagination
+        this._searchAllTracks = tracks;
+        // Keep _tracksByView.search as a reference to the same array for getCurrentTracks()
+        // This ensures paginated tracks are also accessible when clicking to play
+        this._searchQuery = query;
+        this._searchVisibleCount = 0;
+
         const hasLyricsResults = tracks.some(t => t._foundViaLyrics);
         const lyricsCount = tracks.filter(t => t._foundViaLyrics).length;
         const ytCount = tracks.filter(t => t.source === 'youtube').length;
-        const deezerCount = tracks.filter(t => t.source === 'deezer').length;
+        // deezerCount available if needed: tracks.filter(t => t.source === 'deezer').length
 
         // Detect if query matches a genre name
         const matchedGenre = this._findMatchingGenre(query);
@@ -570,10 +627,116 @@ const UI = {
         container.innerHTML = `
             ${matchedGenre ? this._renderGenreChip(matchedGenre, query) : ''}
             <p class="text-sm text-gray-400 mb-4">Found ${tracks.length} results for "${query}"${sourceNotes.join('')}</p>
-            ${tracks.map((track, index) => this.renderTrackRow(track, index)).join('')}
+            <div id="searchTrackList"></div>
+            <div id="searchLoadMore"></div>
         `;
         this._attachGenreChipListener(container);
-        this.attachTrackListeners(container);
+
+        // Render initial batch
+        this._loadMoreSearchResults(20);
+    },
+
+    /**
+     * Load more search results (pagination with true API fetch)
+     */
+    _loadMoreSearchResults(count = 20) {
+        const tracks = this._searchAllTracks;
+        if (!tracks) return;
+
+        const listEl = document.getElementById('searchTrackList');
+        const loadMoreEl = document.getElementById('searchLoadMore');
+        if (!listEl || !loadMoreEl) return;
+
+        const start = this._searchVisibleCount;
+        const end = Math.min(start + count, tracks.length);
+        const batch = tracks.slice(start, end);
+
+        // Append new tracks
+        if (batch.length > 0) {
+            const fragment = document.createElement('div');
+            fragment.innerHTML = batch.map((track, i) => this.renderTrackRow(track, start + i)).join('');
+            listEl.appendChild(fragment);
+            this.attachTrackListeners(fragment);
+            this._searchVisibleCount = end;
+        }
+
+        // Update Load More button
+        this._updateLoadMoreButton();
+    },
+
+    /**
+     * Update the Load More button state
+     */
+    _updateLoadMoreButton() {
+        const loadMoreEl = document.getElementById('searchLoadMore');
+        if (!loadMoreEl) return;
+
+        const remaining = this._searchAllTracks.length - this._searchVisibleCount;
+        const hasApiPages = MusicAPI.piped.hasMorePages();
+
+        if (remaining > 0) {
+            // Still have local results to show
+            loadMoreEl.innerHTML = `
+                <button id="searchLoadMoreBtn" class="w-full py-3 mt-4 rounded-xl border border-gray-700/50 text-gray-400 hover:text-white hover:border-primary/40 hover:bg-primary/10 transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    Show ${Math.min(remaining, 20)} more results (${remaining} remaining)
+                </button>
+            `;
+            document.getElementById('searchLoadMoreBtn').addEventListener('click', () => {
+                this._loadMoreSearchResults(20);
+            });
+        } else if (hasApiPages) {
+            // Local buffer empty, but more YouTube pages available
+            loadMoreEl.innerHTML = `
+                <button id="searchLoadMoreBtn" class="w-full py-3 mt-4 rounded-xl border border-gray-700/50 text-gray-400 hover:text-white hover:border-primary/40 hover:bg-primary/10 transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    Load more from YouTube...
+                </button>
+            `;
+            document.getElementById('searchLoadMoreBtn').addEventListener('click', async () => {
+                // Show loading state
+                const btn = document.getElementById('searchLoadMoreBtn');
+                btn.innerHTML = `
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    Loading more results...
+                `;
+                btn.disabled = true;
+
+                try {
+                    const newTracks = await MusicAPI.piped.loadMoreTracks(20);
+                    if (newTracks.length > 0) {
+                        // Dedup against existing tracks
+                        const existingIds = new Set(this._searchAllTracks.map(t => t.id));
+                        const unique = newTracks.filter(t => !existingIds.has(t.id));
+                        this._searchAllTracks.push(...unique);
+                        // Keep _tracksByView in sync for getCurrentTracks()
+                        this._tracksByView.search = this._searchAllTracks;
+
+                        // Update header count
+                        const header = document.querySelector('#searchResults > p.text-sm');
+                        if (header) {
+                            const ytCount = this._searchAllTracks.filter(t => t.source === 'youtube').length;
+                            const total = this._searchAllTracks.length;
+                            const sourceNotes = [];
+                            if (ytCount > 0) sourceNotes.push(`<span class="ml-2 text-red-400 text-xs">▶ ${ytCount} from YouTube</span>`);
+                            header.innerHTML = `Found ${total} results for "${this.escapeHtml(this._searchQuery)}"${sourceNotes.join('')}`;
+                        }
+
+                        // Render new batch
+                        this._loadMoreSearchResults(20);
+                    } else {
+                        // No new results even though API said there were more pages
+                        loadMoreEl.innerHTML = `<p class="text-center text-gray-500 text-sm mt-4">No more results found</p>`;
+                    }
+                } catch (e) {
+                    console.warn('[UI] Load more failed:', e);
+                    loadMoreEl.innerHTML = `<p class="text-center text-gray-500 text-sm mt-4">Failed to load more results</p>`;
+                }
+            });
+        } else {
+            // No more results anywhere
+            loadMoreEl.innerHTML = '';
+        }
     },
 
     /**

@@ -6,6 +6,12 @@
  *   Piped API   → Audio streaming from YouTube (via PHP proxy)
  *   Jamendo     → Indie music with direct audio (optional, needs API key)
  *   Archive.org → Public domain music with direct audio
+ *
+ * IMPORTANT (B4): When adding/removing Piped or Invidious instances below,
+ * you MUST also update the whitelist in BOTH proxy files:
+ *   - proxy.php          (local XAMPP proxy)
+ *   - api/proxy.js       (Vercel serverless proxy)
+ * All three files must stay in sync to avoid 403 errors.
  */
 
 const MusicAPI = {
@@ -41,6 +47,72 @@ const MusicAPI = {
     cache: new Map(),
     cacheTimeout: 5 * 60 * 1000,
     cacheMaxSize: 100,
+
+    /**
+     * B2: Health check — validate instances on startup.
+     * Pings each Piped/Invidious instance and removes dead ones.
+     * Call this during app initialization (e.g., from app.js init).
+     */
+    async healthCheckInstances() {
+        console.log('[HealthCheck] Validating Piped/Invidious instances...');
+
+        const checkInstance = async (url, testPath) => {
+            try {
+                const proxyUrl = this.getProxyUrl(`${url}${testPath}`);
+                const ctrl = new AbortController();
+                const tm = setTimeout(() => ctrl.abort(), 8000);
+                const res = await fetch(proxyUrl, { signal: ctrl.signal });
+                clearTimeout(tm);
+                return res.ok;
+            } catch {
+                return false;
+            }
+        };
+
+        // Check Piped instances
+        const pipedResults = await Promise.allSettled(
+            this.config.piped.instances.map(async (url) => {
+                const alive = await checkInstance(url, '/healthcheck');
+                return { url, alive };
+            })
+        );
+        const alivePiped = pipedResults
+            .filter(r => r.status === 'fulfilled' && r.value.alive)
+            .map(r => r.value.url);
+        const deadPiped = this.config.piped.instances.filter(u => !alivePiped.includes(u));
+        if (deadPiped.length > 0) {
+            console.warn('[HealthCheck] Dead Piped instances removed:', deadPiped);
+        }
+        if (alivePiped.length > 0) {
+            this.config.piped.instances = alivePiped;
+            this.config.piped.currentIndex = 0;
+            console.log(`[HealthCheck] ✅ ${alivePiped.length} Piped instances alive`);
+        } else {
+            console.warn('[HealthCheck] ⚠️ All Piped instances are down! Keeping original list as fallback.');
+        }
+
+        // Check Invidious instances
+        const invResults = await Promise.allSettled(
+            this.config.invidious.instances.map(async (url) => {
+                const alive = await checkInstance(url, '/api/v1/stats');
+                return { url, alive };
+            })
+        );
+        const aliveInv = invResults
+            .filter(r => r.status === 'fulfilled' && r.value.alive)
+            .map(r => r.value.url);
+        const deadInv = this.config.invidious.instances.filter(u => !aliveInv.includes(u));
+        if (deadInv.length > 0) {
+            console.warn('[HealthCheck] Dead Invidious instances removed:', deadInv);
+        }
+        if (aliveInv.length > 0) {
+            this.config.invidious.instances = aliveInv;
+            this.config.invidious.currentIndex = 0;
+            console.log(`[HealthCheck] ✅ ${aliveInv.length} Invidious instances alive`);
+        } else {
+            console.warn('[HealthCheck] ⚠️ All Invidious instances are down! Keeping original list as fallback.');
+        }
+    },
 
     /**
      * Get proxy URL - auto-detect local vs Vercel
@@ -103,13 +175,13 @@ const MusicAPI = {
     },
 
     async search(query, options = {}) {
-        const { limit = 30, hdOnly = false } = options;
+        const { limit = 30, hdOnly = false, signal = null } = options;
         const cacheKey = `search:${query}:${hdOnly}`;
         const cached = this.getCached(cacheKey);
         if (cached) return cached;
 
         const promises = [
-            this.deezer.search(query, limit)
+            this.deezer.search(query, limit, signal)
         ];
 
         if (this.hasJamendo()) {
@@ -389,48 +461,60 @@ const MusicAPI = {
         }
 
         const query = `${track.artist} ${track.title}`;
+        // Collect all fallback video candidates across search steps
+        const allVideos = []; // [{id, title}]
 
         // Step 1: YouTube via Piped (filtered — music_songs)
         console.log(`[Step 1] Piped filtered search: ${query}`);
         try {
-            const vid = await this.piped.findVideoId(query, track.duration, 'music_songs');
-            if (vid) {
-                track.videoId = vid;
-                track.audioUrl = `yt:${vid}`;
-                console.log(`[Step 1] ✅ Found: ${vid}`);
-                return track.audioUrl;
+            const vids = await this.piped.findVideoIds(query, track.duration, 'music_songs');
+            if (vids.length > 0) {
+                allVideos.push(...vids);
             }
         } catch (e) { console.warn('[Step 1] Failed:', e.message); }
 
         // Step 2: YouTube via Piped (unfiltered — broader results)
-        console.log(`[Step 2] Piped unfiltered search: ${query}`);
-        try {
-            const vid = await this.piped.findVideoId(query, track.duration, null);
-            if (vid) {
-                track.videoId = vid;
-                track.audioUrl = `yt:${vid}`;
-                console.log(`[Step 2] ✅ Found: ${vid}`);
-                return track.audioUrl;
-            }
-        } catch (e) { console.warn('[Step 2] Failed:', e.message); }
+        if (allVideos.length < 3) {
+            console.log(`[Step 2] Piped unfiltered search: ${query}`);
+            try {
+                const vids = await this.piped.findVideoIds(query, track.duration, null);
+                for (const v of vids) {
+                    if (!allVideos.some(av => av.id === v.id)) allVideos.push(v);
+                }
+            } catch (e) { console.warn('[Step 2] Failed:', e.message); }
+        }
 
         // Step 3: YouTube via Invidious (different API, different instances)
-        console.log(`[Step 3] Invidious search: ${query}`);
-        try {
-            const vid = await this.invidious.findVideoId(query, track.duration);
-            if (vid) {
-                track.videoId = vid;
-                track.audioUrl = `yt:${vid}`;
-                console.log(`[Step 3] ✅ Found: ${vid}`);
-                return track.audioUrl;
-            }
-        } catch (e) { console.warn('[Step 3] Failed:', e.message); }
+        if (allVideos.length < 3) {
+            console.log(`[Step 3] Invidious search: ${query}`);
+            try {
+                const vid = await this.invidious.findVideoId(query, track.duration);
+                if (vid && !allVideos.some(av => av.id === vid)) {
+                    allVideos.push({ id: vid, title: '' });
+                }
+            } catch (e) { console.warn('[Step 3] Failed:', e.message); }
+        }
+
+        // Use the best video ID and store fallbacks on the track
+        if (allVideos.length > 0) {
+            const best = allVideos[0];
+            track.videoId = best.id;
+            track.audioUrl = `yt:${best.id}`;
+            // Store remaining as fallbacks with titles for YT embed errors (e.g. error 150)
+            track.fallbackVideos = allVideos.slice(1);
+            console.log(`[Resolve] ✅ Primary: ${best.id}, Fallbacks: [${track.fallbackVideos.map(v => v.id).join(', ')}]`);
+            return track.audioUrl;
+        }
 
         // Step 4: Deezer 30s preview (last resort — better than nothing)
         if (track.previewUrl) {
             console.log(`[Step 4] Falling back to Deezer 30s preview`);
             track.audioUrl = track.previewUrl;
             track.isPreview = true;
+            // B5: Notify user about the 30s preview fallback
+            if (typeof UI !== 'undefined') {
+                UI.showToast(`⚠️ Playing 30s preview — full audio unavailable for "${track.title}"`, 'warning', { closeable: true, duration: 8000 });
+            }
             return track.audioUrl;
         }
 
@@ -527,16 +611,18 @@ const MusicAPI = {
     // DEEZER API (Metadata)
     // =====================
     deezer: {
-        async search(query, limit = 30) {
+        async search(query, limit = 30, signal = null) {
             try {
                 const url = `${MusicAPI.config.deezer.baseUrl}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
                 const proxyUrl = MusicAPI.getProxyUrl(url);
-                const response = await fetch(proxyUrl);
+                const fetchOptions = signal ? { signal } : {};
+                const response = await fetch(proxyUrl, fetchOptions);
                 const data = await response.json();
 
                 if (!data.data) return [];
                 return data.data.map(t => this.formatTrack(t));
             } catch (e) {
+                if (e.name === 'AbortError') throw e; // Re-throw abort to let caller handle
                 console.error('Deezer search error:', e);
                 return [];
             }
@@ -604,10 +690,11 @@ const MusicAPI = {
         },
 
         /**
-         * Find best matching YouTube video ID for a track
-         * Uses title matching + duration proximity to avoid wrong songs
+         * Find best matching YouTube video IDs for a track
+         * Returns an array of up to 3 video IDs, ranked by match quality.
+         * Uses title matching + duration proximity to avoid wrong songs.
          */
-        async findVideoId(query, expectedDuration = 0, filter = 'music_songs') {
+        async findVideoIds(query, expectedDuration = 0, filter = 'music_songs') {
             const queryLower = query.toLowerCase();
             const filterParam = filter ? `&filter=${filter}` : '';
 
@@ -615,12 +702,12 @@ const MusicAPI = {
                 const data = await this.pipedFetch(
                     `/search?q=${encodeURIComponent(query)}${filterParam}`
                 );
-                if (!data?.items?.length) return null;
+                if (!data?.items?.length) return [];
 
                 let candidates = data.items
                     .filter(item => item.type === 'stream' && item.duration > 30 && item.duration < 600);
 
-                if (candidates.length === 0) return null;
+                if (candidates.length === 0) return [];
 
                 // Score each candidate by title match + duration proximity
                 const scored = candidates.map(item => {
@@ -641,12 +728,44 @@ const MusicAPI = {
                         score += Math.max(0, 50 - durationDiff * 2);
                     }
 
-                    // Penalize if title contains words NOT in the query (likely wrong song)
+                    // Bonus: "official" in title suggests original version (+20)
+                    if (/\bofficial\b/.test(title)) {
+                        score += 20;
+                    }
+
+                    // Bonus: uploader/channel name matches the artist (+25)
+                    const artistWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+                    const artistMatchCount = artistWords.filter(w => uploader.includes(w)).length;
+                    if (artistMatchCount >= 2 || (artistWords.length <= 2 && artistMatchCount >= 1)) {
+                        score += 25;
+                    }
+
+                    // Heavy penalty for alternative/modified versions (-30 each)
+                    const altVersionPatterns = [
+                        'acoustic', 'live', 'cover', 'remix', 'instrumental',
+                        'karaoke', 'slowed', 'reverb', 'sped up', 'nightcore',
+                        'mashup', 'unplugged', 'stripped', 'demo', 'radio edit',
+                        'extended', 'concert', 'session', 'performance',
+                        'piano version', 'guitar version', 'metal version',
+                        'bass boosted', '8d audio', 'lofi', 'lo-fi'
+                    ];
+                    for (const pattern of altVersionPatterns) {
+                        if (title.includes(pattern) && !queryLower.includes(pattern)) {
+                            score -= 30;
+                        }
+                    }
+
+                    // Light penalty for extra words not in query
+                    const safeWords = new Set([
+                        'official', 'video', 'audio', 'music', 'lyric', 'lyrics',
+                        'hd', 'hq', '4k', '1080p', 'vevo', 'visualizer',
+                        'with', 'feat', 'featuring', 'from', 'the'
+                    ]);
                     const titleWords = title.replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3);
                     const extraWords = titleWords.filter(w => 
-                        !queryLower.includes(w) && !['official', 'video', 'audio', 'music', 'lyric', 'lyrics', 'hd', 'remix'].includes(w)
+                        !queryLower.includes(w) && !safeWords.has(w)
                     );
-                    score -= extraWords.length * 10;
+                    score -= extraWords.length * 5;
 
                     return { item, score };
                 });
@@ -654,19 +773,23 @@ const MusicAPI = {
                 // Sort by score descending
                 scored.sort((a, b) => b.score - a.score);
                 
-                console.log('Video candidates:', scored.slice(0, 3).map(s => 
+                console.log('Video candidates:', scored.slice(0, 5).map(s => 
                     `"${s.item.title}" score=${s.score.toFixed(0)}`
                 ));
 
-                const best = scored[0];
-                if (best) {
-                    return this.extractVideoId(best.item.url);
-                }
+                // Return top 3 as ranked alternatives with titles
+                return scored
+                    .slice(0, 3)
+                    .map(s => ({
+                        id: this.extractVideoId(s.item.url),
+                        title: s.item.title || ''
+                    }))
+                    .filter(v => v.id);
             } catch (e) {
                 console.warn('Piped search failed:', e.message);
             }
 
-            return null;
+            return [];
         },
 
         extractVideoId(url) {
@@ -729,6 +852,45 @@ const MusicAPI = {
                         const durationDiff = Math.abs(item.lengthSeconds - expectedDuration);
                         score += Math.max(0, 50 - durationDiff * 2);
                     }
+
+                    // Bonus: "official" in title (+20)
+                    if (/\bofficial\b/.test(title)) {
+                        score += 20;
+                    }
+
+                    // Bonus: channel name matches the artist (+25)
+                    const artistWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+                    const artistMatchCount = artistWords.filter(w => author.includes(w)).length;
+                    if (artistMatchCount >= 2 || (artistWords.length <= 2 && artistMatchCount >= 1)) {
+                        score += 25;
+                    }
+
+                    // Heavy penalty for alternative/modified versions (-30 each)
+                    const altVersionPatterns = [
+                        'acoustic', 'live', 'cover', 'remix', 'instrumental',
+                        'karaoke', 'slowed', 'reverb', 'sped up', 'nightcore',
+                        'mashup', 'unplugged', 'stripped', 'demo', 'radio edit',
+                        'extended', 'concert', 'session', 'performance',
+                        'piano version', 'guitar version', 'metal version',
+                        'bass boosted', '8d audio', 'lofi', 'lo-fi'
+                    ];
+                    for (const pattern of altVersionPatterns) {
+                        if (title.includes(pattern) && !queryLower.includes(pattern)) {
+                            score -= 30;
+                        }
+                    }
+
+                    // Light penalty for extra words not in query
+                    const safeWords = new Set([
+                        'official', 'video', 'audio', 'music', 'lyric', 'lyrics',
+                        'hd', 'hq', '4k', '1080p', 'vevo', 'visualizer',
+                        'with', 'feat', 'featuring', 'from', 'the'
+                    ]);
+                    const titleWords = title.replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3);
+                    const extraWords = titleWords.filter(w => 
+                        !queryLower.includes(w) && !safeWords.has(w)
+                    );
+                    score -= extraWords.length * 5;
 
                     return { item, score };
                 });

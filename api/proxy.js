@@ -3,6 +3,10 @@
  * Replaces proxy.php for Vercel deployment
  */
 
+// B4: Keep this list in sync with:
+//   - proxy.php          (local XAMPP proxy)
+//   - src/js/api.js      (MusicAPI.config.piped.instances & invidious.instances)
+// All three files must have matching domains to avoid 403 errors.
 const allowedDomains = [
     'api.deezer.com',
     'api.piped.private.coffee',

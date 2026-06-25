@@ -20,6 +20,36 @@
 #sidebar::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
 }
+
+/* Marquee scrolling for long track titles */
+.marquee-container {
+    overflow: hidden;
+    position: relative;
+    white-space: nowrap;
+    mask-image: linear-gradient(90deg, #000 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent 100%);
+}
+
+.marquee-text {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.marquee-text.scrolling {
+    animation: marquee-scroll var(--marquee-duration, 8s) linear infinite;
+    animation-delay: 1.5s;
+}
+
+.marquee-container:hover .marquee-text.scrolling {
+    animation-play-state: paused;
+}
+
+@keyframes marquee-scroll {
+    0%   { transform: translateX(0); }
+    10%  { transform: translateX(0); }
+    90%  { transform: translateX(var(--marquee-offset, -50%)); }
+    100% { transform: translateX(var(--marquee-offset, -50%)); }
+}
 /* Like Button Animation */
 @keyframes like-pop {
     0% { transform: scale(1); }
@@ -656,14 +686,14 @@
     }
 
     /* === Row 2: Track info + inline controls === */
-    #playerBar .w-56:first-child {
+    #playerBar .w-72:first-child {
         width: 100%;
         flex-shrink: 0;
         order: 1;
         padding: 8px 12px;
     }
 
-    #playerBar .w-56:first-child > div:first-child {
+    #playerBar .w-72:first-child > div:first-child {
         width: 44px;
         height: 44px;
         border-radius: 8px;
@@ -773,12 +803,12 @@
     }
 
     /* Player: compact track info */
-    #playerBar .w-56:first-child {
+    #playerBar .w-72:first-child {
         gap: 0.5rem;
         padding: 6px 8px;
     }
 
-    #playerBar .w-56:first-child .min-w-0 p:first-child {
+    #playerBar .w-72:first-child .min-w-0 p:first-child {
         font-size: 0.75rem;
     }
 
@@ -826,7 +856,7 @@
     }
 
     /* Player bar: slightly less track info width */
-    #playerBar .w-56:first-child {
+    #playerBar .w-72:first-child {
         width: 180px;
     }
 

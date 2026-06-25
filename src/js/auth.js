@@ -23,6 +23,10 @@ const Auth = {
 
         try {
             // Initialize Firebase
+            // B3 SECURITY NOTE: This API key is intentionally client-side (standard for Firebase web apps).
+            // Protection is enforced via: Firestore Security Rules (firestore.rules) + Firebase Console
+            // domain restrictions (Settings > General > Authorized domains). The key alone cannot
+            // access any data without passing the auth + rules checks.
             const app = firebase.initializeApp({
                 apiKey: "AIzaSyA9Jp03wbPkjkcdOfpLhF1sMb_lmUMTsbQ",
                 authDomain: "musicweb-e1397.firebaseapp.com",

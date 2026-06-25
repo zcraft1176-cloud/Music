@@ -94,17 +94,34 @@ const Lyrics = {
      * instead of waiting for the browser's timeupdate event (~250ms interval).
      */
     _startSyncLoop() {
+        // Cancel any existing loop first to prevent stacking
+        this._stopSyncLoop();
+
         const tick = () => {
+            // Only continue the loop if panel is open and there are synced lines
             if (this._isOpen && this._syncedLines.length > 0) {
                 const currentTime = this._getCurrentTime();
                 if (currentTime !== null) {
                     this._updateHighlight(currentTime);
                 }
                 this._interpolateScroll();
+                this._rafId = requestAnimationFrame(tick);
+            } else {
+                // Stop the loop when not needed (saves CPU)
+                this._rafId = null;
             }
-            this._rafId = requestAnimationFrame(tick);
         };
         this._rafId = requestAnimationFrame(tick);
+    },
+
+    /**
+     * Stop the sync loop to save CPU when lyrics panel is closed
+     */
+    _stopSyncLoop() {
+        if (this._rafId) {
+            cancelAnimationFrame(this._rafId);
+            this._rafId = null;
+        }
     },
 
     /**
@@ -137,8 +154,15 @@ const Lyrics = {
         document.getElementById('mobileExpLyrics')?.classList.toggle('text-purple-400', this._isOpen);
         document.getElementById('mobileExpLyrics')?.classList.toggle('text-gray-500', !this._isOpen);
 
-        if (this._isOpen && Player.currentTrack) {
-            this.fetchForTrack(Player.currentTrack);
+        if (this._isOpen) {
+            // Restart the sync loop when panel opens
+            this._startSyncLoop();
+            if (Player.currentTrack) {
+                this.fetchForTrack(Player.currentTrack);
+            }
+        } else {
+            // Stop the sync loop when panel closes (saves CPU)
+            this._stopSyncLoop();
         }
     },
 

@@ -148,10 +148,62 @@ const Player = {
                     },
                     onStateChange: (e) => this._onYTState(e),
                     onError: (e) => {
-                        console.error('YT error:', e.data);
-                        if (this._source === 'youtube') {
-                            UI.showToast('YouTube error — skipping', 'error');
-                            setTimeout(() => this.next(), 800);
+                        console.error('YT error:', e.data, '— checking fallbacks...');
+                        if (this._source === 'youtube' && this.currentTrack) {
+                            const track = this.currentTrack;
+                            // Try fallback videos before giving up
+                            if (track.fallbackVideos && track.fallbackVideos.length > 0) {
+                                const next = track.fallbackVideos.shift();
+                                console.log(`[YT Retry] Trying fallback video: ${next.id} "${next.title}"`);
+                                
+                                // Extract version info from the fallback video title
+                                // e.g. "Best Day Of My Life (Acoustic)" → "Acoustic"
+                                const versionTags = [
+                                    'acoustic', 'live', 'remix', 'cover', 'instrumental',
+                                    'unplugged', 'stripped', 'demo', 'radio edit', 'extended',
+                                    'concert', 'session', 'performance', 'karaoke',
+                                    'piano version', 'guitar version', 'lyric video',
+                                    'lyrics', 'official audio', 'official video'
+                                ];
+                                const lowerTitle = next.title.toLowerCase();
+                                let versionLabel = '';
+                                for (const tag of versionTags) {
+                                    if (lowerTitle.includes(tag)) {
+                                        versionLabel = tag.charAt(0).toUpperCase() + tag.slice(1);
+                                        break;
+                                    }
+                                }
+
+                                // Update track info with version indicator
+                                if (versionLabel && !track.title.toLowerCase().includes(versionLabel.toLowerCase())) {
+                                    track._originalTitle = track._originalTitle || track.title;
+                                    track.title = `${track._originalTitle} (${versionLabel})`;
+                                }
+                                
+                                track.videoId = next.id;
+                                track.audioUrl = `yt:${next.id}`;
+                                this.ytPlayer.loadVideoById(next.id);
+                                this.updateUI();
+                                UI.showToast(
+                                    `🔄 Original unavailable — playing ${versionLabel || 'alternate'} version`,
+                                    'warning',
+                                    { closeable: true, duration: 8000 }
+                                );
+                            } else {
+                                // All fallbacks exhausted — try 30s preview or skip
+                                if (track.previewUrl && !track.isPreview) {
+                                    console.log('[YT Retry] All videos failed, falling to 30s preview');
+                                    track.audioUrl = track.previewUrl;
+                                    track.isPreview = true;
+                                    this._source = 'html5';
+                                    this.audio.src = track.audioUrl;
+                                    this.audio.play().catch(() => {});
+                                    UI.showToast(`⚠️ Playing 30s preview — full audio unavailable for "${track.title}"`, 'warning', { closeable: true, duration: 8000 });
+                                } else {
+                                    UI.showToast('YouTube error — skipping', 'error');
+                                    setTimeout(() => this.next(), 800);
+                                }
+                            }
                         }
                     }
                 }
@@ -1017,6 +1069,19 @@ const Player = {
         if (this.currentTrack) {
             if (this.elements.playerTitle) {
                 this.elements.playerTitle.textContent = this.currentTrack.title;
+                // Toggle marquee scroll if title overflows container
+                this.elements.playerTitle.classList.remove('scrolling');
+                requestAnimationFrame(() => {
+                    const el = this.elements.playerTitle;
+                    const container = el.parentElement;
+                    if (container && el.scrollWidth > container.clientWidth) {
+                        const overflow = el.scrollWidth - container.clientWidth;
+                        const duration = Math.max(5, overflow / 25); // ~25px/sec
+                        el.style.setProperty('--marquee-offset', `-${overflow + 20}px`);
+                        el.style.setProperty('--marquee-duration', `${duration}s`);
+                        el.classList.add('scrolling');
+                    }
+                });
             }
             if (this.elements.playerArtist) {
                 this.elements.playerArtist.textContent = this.currentTrack.artist;

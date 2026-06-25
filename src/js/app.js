@@ -27,6 +27,12 @@ const App = {
             // Setup global event listeners
             this.setupGlobalListeners();
 
+            // B2: Run instance health check in background (non-blocking)
+            // This validates Piped/Invidious instances and removes dead ones
+            MusicAPI.healthCheckInstances().catch(e => 
+                console.warn('Health check failed:', e)
+            );
+
             console.log('MsicFree App ready!');
             UI.showToast('Welcome to MsicFree!', 'success');
         } catch (error) {

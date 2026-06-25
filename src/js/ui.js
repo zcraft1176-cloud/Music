@@ -866,9 +866,12 @@ const UI = {
     /**
      * Show toast notification
      */
-    showToast(message, type = 'info') {
+    showToast(message, type = 'info', options = {}) {
         const container = document.getElementById('toastContainer');
         if (!container) return;
+
+        const { duration = null, closeable = false } = typeof options === 'object' ? options : {};
+        const autoDuration = duration || (closeable ? 8000 : 3000);
 
         const colors = {
             success: 'bg-green-600',
@@ -886,20 +889,38 @@ const UI = {
 
         const toast = document.createElement('div');
         toast.className = `toast ${colors[type]} px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 max-w-sm`;
+        
+        const closeBtn = closeable 
+            ? `<button class="toast-close-btn shrink-0 ml-1 opacity-70 hover:opacity-100 transition-opacity" aria-label="Close">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+               </button>` 
+            : '';
+
         toast.innerHTML = `
             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 ${icons[type]}
             </svg>
-            <p class="text-sm">${this.escapeHtml(message)}</p>
+            <p class="text-sm flex-1">${this.escapeHtml(message)}</p>
+            ${closeBtn}
         `;
+
+        // Close button handler
+        if (closeable) {
+            toast.querySelector('.toast-close-btn')?.addEventListener('click', () => {
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 300);
+            });
+        }
 
         container.appendChild(toast);
 
-        // Auto remove after 3 seconds
+        // Auto remove after duration
         setTimeout(() => {
             toast.classList.add('hiding');
             setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        }, autoDuration);
     },
 
     /**

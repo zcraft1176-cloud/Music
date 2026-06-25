@@ -31,6 +31,10 @@ if (empty($url)) {
 }
 
 // Whitelist allowed domains
+// B4: Keep this list in sync with:
+//   - api/proxy.js       (Vercel serverless proxy)
+//   - src/js/api.js      (MusicAPI.config.piped.instances & invidious.instances)
+// All three files must have matching domains to avoid 403 errors.
 $allowedDomains = [
     'api.deezer.com',
     'api.piped.private.coffee',

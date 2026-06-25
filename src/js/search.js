@@ -78,7 +78,8 @@ const Search = {
 
         try {
             const results = await MusicAPI.search(query, { 
-                limit: 30 
+                limit: 30,
+                signal: currentController.signal
             });
 
             // If this search was cancelled by a newer one, don't update UI

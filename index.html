@@ -62,7 +62,7 @@
     </script>
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="dist/css/output.css?v=2.5">
+    <link rel="stylesheet" href="dist/css/output.css?v=2.6">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -558,14 +558,16 @@
     <div id="playerBar" class="fixed bottom-0 left-0 right-0 bg-dark-300 border-t border-gray-800 px-4 py-3 z-50">
         <div class="flex items-center gap-4 max-w-screen-2xl mx-auto px-6">
             <!-- Track Info -->
-            <div class="flex items-center gap-3 w-56 shrink-0 pl-2">
+            <div class="flex items-center gap-3 w-72 shrink-0 pl-2">
                 <div id="playerCover" class="w-14 h-14 bg-dark-100 rounded-lg flex items-center justify-center overflow-hidden">
                     <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                     </svg>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <p id="playerTitle" class="text-sm font-medium truncate">No track selected</p>
+                    <div class="marquee-container">
+                        <p id="playerTitle" class="text-sm font-medium marquee-text">No track selected</p>
+                    </div>
                     <p id="playerArtist" class="text-xs text-gray-400 truncate">-</p>
                     <!-- Mobile: time display under title -->
                     <p id="mobileTimeDisplay" class="text-xs text-gray-500 hidden"><span id="mobileCurrentTime">0:00</span> / <span id="mobileDuration">0:00</span></p>

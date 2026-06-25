@@ -474,9 +474,9 @@ const PlaylistImporter = {
         const queries = [];
         if (firstArtist) {
             queries.push(`${cleanTitle} ${firstArtist}`);
-            // If there are multiple artists, also try just the clean title + first artist
+            // If there are multiple artists, also try with all artists combined
             if (artists.length > 1) {
-                queries.push(`${cleanTitle} ${firstArtist}`);
+                queries.push(`${cleanTitle} ${artists.join(' ')}`);
             }
         }
         queries.push(cleanTitle); // fallback: title only

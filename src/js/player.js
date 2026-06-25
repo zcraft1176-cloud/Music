@@ -533,12 +533,14 @@ const Player = {
             try {
                 const url = await MusicAPI.resolveAudioUrl(track);
                 if (!url) {
-                    UI.showToast('Audio not found - try another track', 'error');
+                    UI.showToast(`Audio not found: ${track.title} — skipping`, 'error');
+                    setTimeout(() => this.next(), 1000);
                     return;
                 }
             } catch (e) {
                 console.error('Audio resolve failed:', e);
-                UI.showToast('Failed to find audio', 'error');
+                UI.showToast(`Failed to find audio: ${track.title} — skipping`, 'error');
+                setTimeout(() => this.next(), 1000);
                 return;
             }
         }

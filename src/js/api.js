@@ -426,6 +426,14 @@ const MusicAPI = {
             }
         } catch (e) { console.warn('[Step 3] Failed:', e.message); }
 
+        // Step 4: Deezer 30s preview (last resort — better than nothing)
+        if (track.previewUrl) {
+            console.log(`[Step 4] Falling back to Deezer 30s preview`);
+            track.audioUrl = track.previewUrl;
+            track.isPreview = true;
+            return track.audioUrl;
+        }
+
         console.warn('All resolve steps failed for:', query);
         return null;
     },

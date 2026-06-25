@@ -542,6 +542,8 @@ const UI = {
 
         const hasLyricsResults = tracks.some(t => t._foundViaLyrics);
         const lyricsCount = tracks.filter(t => t._foundViaLyrics).length;
+        const ytCount = tracks.filter(t => t.source === 'youtube').length;
+        const deezerCount = tracks.filter(t => t.source === 'deezer').length;
 
         // Detect if query matches a genre name
         const matchedGenre = this._findMatchingGenre(query);
@@ -561,13 +563,13 @@ const UI = {
             return;
         }
 
-        const lyricsNote = hasLyricsResults
-            ? `<span class="ml-2 text-purple-400 text-xs">🎵 ${lyricsCount} found via lyrics</span>`
-            : '';
+        const sourceNotes = [];
+        if (ytCount > 0) sourceNotes.push(`<span class="ml-2 text-red-400 text-xs">▶ ${ytCount} from YouTube</span>`);
+        if (hasLyricsResults) sourceNotes.push(`<span class="ml-2 text-purple-400 text-xs">🎵 ${lyricsCount} found via lyrics</span>`);
 
         container.innerHTML = `
             ${matchedGenre ? this._renderGenreChip(matchedGenre, query) : ''}
-            <p class="text-sm text-gray-400 mb-4">Found ${tracks.length} results for "${query}"${lyricsNote}</p>
+            <p class="text-sm text-gray-400 mb-4">Found ${tracks.length} results for "${query}"${sourceNotes.join('')}</p>
             ${tracks.map((track, index) => this.renderTrackRow(track, index)).join('')}
         `;
         this._attachGenreChipListener(container);

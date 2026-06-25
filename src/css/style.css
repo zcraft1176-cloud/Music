@@ -170,6 +170,11 @@
     color: #f87171;
 }
 
+.source-badge.youtube {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
 .source-badge.archive {
     background-color: rgba(34, 211, 238, 0.2);
     color: #22d3ee;

@@ -181,7 +181,8 @@ const MusicAPI = {
         if (cached) return cached;
 
         const promises = [
-            this.deezer.search(query, limit, signal)
+            this.deezer.search(query, limit, signal),
+            this.piped.searchTracks(query, 20)
         ];
 
         if (this.hasJamendo()) {
@@ -195,15 +196,24 @@ const MusicAPI = {
         }
 
         const results = await Promise.allSettled(promises);
-        let tracks = [];
-        results.forEach(r => {
-            if (r.status === 'fulfilled' && r.value) tracks = tracks.concat(r.value);
+        // Collect Deezer results first (index 0), then YouTube (index 1), then rest
+        let deezerTracks = [];
+        let ytTracks = [];
+        let otherTracks = [];
+        results.forEach((r, i) => {
+            if (r.status !== 'fulfilled' || !r.value) return;
+            if (i === 0) deezerTracks = r.value;
+            else if (i === 1) ytTracks = r.value;
+            else otherTracks = otherTracks.concat(r.value);
         });
 
-        // Deduplicate by title similarity
+        // Merge: Deezer first, then others, then YouTube at the end
+        let tracks = [...deezerTracks, ...otherTracks, ...ytTracks];
+
+        // Deduplicate by title similarity — Deezer results win over YouTube
         const seen = new Set();
         tracks = tracks.filter(t => {
-            const key = `${t.title.toLowerCase().substring(0, 25)}-${t.artist.toLowerCase().substring(0, 15)}`;
+            const key = `${t.title.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 25)}-${t.artist.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15)}`;
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
@@ -212,14 +222,15 @@ const MusicAPI = {
         // If lyrics search found results, prioritize them at the top
         if (isLyrics) {
             const lyricsTracks = tracks.filter(t => t._foundViaLyrics);
-            const otherTracks = tracks.filter(t => !t._foundViaLyrics);
-            tracks = [...lyricsTracks, ...otherTracks];
+            const rest = tracks.filter(t => !t._foundViaLyrics);
+            tracks = [...lyricsTracks, ...rest];
         }
 
         if (hdOnly) tracks = tracks.filter(t => (t.bitrate || 0) >= 128);
 
-        this.setCache(cacheKey, tracks.slice(0, limit));
-        return tracks.slice(0, limit);
+        const finalLimit = Math.max(limit, 50); // Allow more results since we have 2 sources
+        this.setCache(cacheKey, tracks.slice(0, finalLimit));
+        return tracks.slice(0, finalLimit);
     },
 
     // =====================
@@ -456,6 +467,11 @@ const MusicAPI = {
      * Step 3: Deezer 30s preview → HTML5 Audio
      */
     async resolveAudioUrl(track) {
+        // YouTube tracks from search already have videoId — skip re-search
+        if (track.source === 'youtube' && track.videoId) {
+            track.audioUrl = `yt:${track.videoId}`;
+            return track.audioUrl;
+        }
         if (track.source !== 'deezer' && track.audioUrl) {
             return track.audioUrl;
         }
@@ -796,6 +812,72 @@ const MusicAPI = {
             if (!url) return null;
             const m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/) || url.match(/\/([a-zA-Z0-9_-]{11})/);
             return m ? m[1] : (/^[a-zA-Z0-9_-]{11}$/.test(url) ? url : null);
+        },
+
+        /**
+         * Search YouTube via Piped and return formatted track objects.
+         * Used as a parallel search source alongside Deezer.
+         */
+        async searchTracks(query, limit = 20) {
+            try {
+                const data = await this.pipedFetch(
+                    `/search?q=${encodeURIComponent(query)}&filter=music_songs`
+                );
+                if (!data?.items?.length) {
+                    // Fallback: try without filter
+                    const data2 = await this.pipedFetch(
+                        `/search?q=${encodeURIComponent(query)}`
+                    );
+                    if (!data2?.items?.length) return [];
+                    return this._formatPipedResults(data2.items, limit);
+                }
+                return this._formatPipedResults(data.items, limit);
+            } catch (e) {
+                console.warn('[YT Search] Piped searchTracks failed:', e.message);
+                return [];
+            }
+        },
+
+        /**
+         * Format Piped search results into standard track objects
+         */
+        _formatPipedResults(items, limit) {
+            return items
+                .filter(item => item.type === 'stream' && item.duration > 30 && item.duration < 600)
+                .slice(0, limit)
+                .map(item => {
+                    const videoId = this.extractVideoId(item.url);
+                    if (!videoId) return null;
+
+                    // Parse artist from uploaderName (remove " - Topic" suffix)
+                    let artist = (item.uploaderName || 'Unknown')
+                        .replace(/\s*-\s*Topic$/i, '')
+                        .replace(/\s*VEVO$/i, '')
+                        .trim();
+
+                    // Use the best available thumbnail
+                    const cover = item.thumbnail || '';
+
+                    return {
+                        id: `yt_${videoId}`,
+                        source: 'youtube',
+                        title: item.title || 'Unknown',
+                        artist: artist,
+                        album: '',
+                        cover: cover,
+                        duration: item.duration || 0,
+                        audioUrl: `yt:${videoId}`,
+                        videoId: videoId,
+                        previewUrl: null,
+                        isPreview: false,
+                        bitrate: 160,
+                        format: 'opus',
+                        genre: [],
+                        license: '',
+                        releaseDate: ''
+                    };
+                })
+                .filter(Boolean);
         }
     },
 
@@ -971,6 +1053,6 @@ const MusicAPI = {
     },
 
     getSourceLabel(source) {
-        return { deezer: 'Deezer', piped: 'YouTube', jamendo: 'Jamendo', archive: 'Archive' }[source] || source;
+        return { deezer: 'Deezer', youtube: 'YouTube', piped: 'YouTube', jamendo: 'Jamendo', archive: 'Archive' }[source] || source;
     }
 };

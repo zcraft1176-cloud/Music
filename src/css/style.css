@@ -621,9 +621,9 @@
     }
 
     /* --- Hide desktop playlist list in sidebar on mobile --- */
-    #sidebarPlaylists {
+    /* #sidebarPlaylists {
         display: none;
-    }
+    } */
 
     /* --- Also hide the Queue section wrapper at sidebar bottom --- */
     #sidebar > div:last-of-type:has(.nav-btn[data-view="queue"]) {

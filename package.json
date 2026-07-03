@@ -20,6 +20,9 @@
     "url": "https://github.com/zcraft1176-cloud/Music/issues"
   },
   "homepage": "https://github.com/zcraft1176-cloud/Music#readme",
+  "dependencies": {
+    "@vercel/analytics": "^1.4.1"
+  },
   "devDependencies": {
     "tailwindcss": "^3.4.19"
   }

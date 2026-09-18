@@ -30,6 +30,10 @@ const Lyrics = {
     // Negative = lyrics appear before the timestamp (feels more natural)
     TIMING_OFFSET: -0.3,
 
+    // Persisted cache: a reload should not refetch every track.
+    CACHE_KEY: 'msicfree.lyrics.v1',
+    CACHE_MAX: 60,
+
     /**
      * Initialize lyrics module
      */
@@ -49,12 +53,15 @@ const Lyrics = {
         panel.className = 'lyrics-panel';
         panel.innerHTML = `
             <div class="lyrics-panel-header">
-                <div class="lyrics-panel-title">
-                    <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM21 16c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
-                    </svg>
-                    <span>Lyrics</span>
-                    <span class="lyrics-track-name"></span>
+                <div class="lyrics-header-text">
+                    <div class="lyrics-panel-title">
+                        <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM21 16c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
+                        </svg>
+                        <span>Lyrics</span>
+                        <span class="lyrics-track-name"></span>
+                    </div>
+                    <div class="lyrics-meta" id="lyricsMeta"></div>
                 </div>
                 <button id="lyricsCloseBtn" class="lyrics-close-btn" aria-label="Close lyrics">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,6 +80,7 @@ const Lyrics = {
         `;
         document.body.appendChild(panel);
         this._contentEl = document.getElementById('lyricsContent');
+        this._metaEl = document.getElementById('lyricsMeta');
     },
 
     /**
@@ -98,16 +106,21 @@ const Lyrics = {
         this._stopSyncLoop();
 
         const tick = () => {
-            // Only continue the loop if panel is open and there are synced lines
-            if (this._isOpen && this._syncedLines.length > 0) {
+            // Keep looping for as long as the panel is open. This used to stop
+            // the loop when _syncedLines was empty -- which is exactly the state
+            // right after the panel opens, because the fetch is async. The loop
+            // died a frame before the lyrics arrived and nothing ever restarted
+            // it, so the words appeared but never followed the song.
+            if (this._isOpen) {
                 const currentTime = this._getCurrentTime();
-                if (currentTime !== null) {
+                if (currentTime !== null && this._syncedLines.length > 0) {
                     this._updateHighlight(currentTime);
                 }
-                this._interpolateScroll();
+                if (this._syncedLines.length > 0) {
+                    this._interpolateScroll();
+                }
                 this._rafId = requestAnimationFrame(tick);
             } else {
-                // Stop the loop when not needed (saves CPU)
                 this._rafId = null;
             }
         };
@@ -167,108 +180,263 @@ const Lyrics = {
     },
 
     /**
-     * Fetch lyrics for a track
+     * Deezer keeps "(feat. X)", "[Remastered 2011]" and "- Radio Edit" in the
+     * title, but LRCLIB's catalogue does not. Strip them for lookups only --
+     * the UI still shows the title the user clicked.
      */
+    _cleanTitle(title) {
+        return String(title || '')
+            .replace(/\((?:feat|ft|with)\.?[^)]*\)/gi, ' ')
+            .replace(/\[(?:feat|ft|with)\.?[^\]]*\]/gi, ' ')
+            .replace(/\s*[-\u2013]\s*(?:remaster(?:ed)?|radio edit|single version|album version|bonus track)\b.*$/i, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    },
+
+    /**
+     * LRCLIB stores one artist per field. Deezer sends "A, B feat. C" for
+     * collaborations, which never matches -- the first credited name does.
+     */
+    _cleanArtist(artist) {
+        return String(artist || '')
+            .split(/,| feat\.?| ft\.?| & | x /i)[0]
+            .replace(/\s+/g, ' ')
+            .trim();
+    },
+
+    /**
+     * Duration is part of the key: "Not You" and "Not You (Chinese Version)"
+     * are both 153s on Deezer, but a live or extended cut must not reuse the
+     * studio recording's lyrics.
+     */
+    _trackKey(track) {
+        return `${track.title}-${track.artist}-${Math.round(track.duration || 0)}`;
+    },
+
+    _esc(v) {
+        return String(v == null ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    },
+
+    _formatDuration(sec) {
+        const total = Math.round(sec);
+        if (!total) return '';
+        return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+    },
+
+    /**
+     * Metadata strip under the header: artist, album, length and whether the
+     * lyrics are time-synced, plain, or the track is instrumental.
+     */
+    _renderMeta(track, data) {
+        if (!this._metaEl) return;
+        const parts = [];
+        if (track.artist) parts.push(track.artist);
+        const album = (data && data.albumName) || track.album;
+        if (album) parts.push(album);
+        const dur = (data && data.duration) || track.duration;
+        if (dur) parts.push(this._formatDuration(dur));
+        if (data && data.__fromCache) parts.push('cached');
+
+        let badge = '';
+        if (data && data.instrumental) badge = '<span class="lyrics-badge instrumental">Instrumental</span>';
+        else if (data && data.syncedLyrics) badge = '<span class="lyrics-badge synced">Synced</span>';
+        else if (data && data.plainLyrics) badge = '<span class="lyrics-badge plain">Plain</span>';
+
+        this._metaEl.innerHTML = parts.map(x => this._esc(x)).join(' \u00b7 ') +
+            (badge ? (parts.length ? '  ' : '') + badge : '');
+    },
+
+    _persist(trackKey, data) {
+        try {
+            const store = JSON.parse(localStorage.getItem(this.CACHE_KEY) || '{}');
+            store[trackKey] = {
+                syncedLyrics: data.syncedLyrics || null,
+                plainLyrics: data.plainLyrics || null,
+                albumName: data.albumName || null,
+                duration: data.duration || null,
+                instrumental: !!data.instrumental,
+                ts: Date.now()
+            };
+            const keys = Object.keys(store);
+            if (keys.length > this.CACHE_MAX) {
+                keys.sort((x, y) => store[x].ts - store[y].ts)
+                    .slice(0, keys.length - this.CACHE_MAX)
+                    .forEach(k => delete store[k]);
+            }
+            localStorage.setItem(this.CACHE_KEY, JSON.stringify(store));
+        } catch (e) { /* private mode / quota -- cache is optional */ }
+    },
+
+    _readPersisted(trackKey) {
+        try {
+            const store = JSON.parse(localStorage.getItem(this.CACHE_KEY) || '{}');
+            const hit = store[trackKey];
+            if (hit && (hit.syncedLyrics || hit.plainLyrics || hit.instrumental)) {
+                hit.__fromCache = true;
+                return hit;
+            }
+        } catch (e) { }
+        return null;
+    },
+
     async fetchForTrack(track) {
         if (!track) return;
 
-        const trackKey = `${track.title}-${track.artist}`;
-        
+        const trackKey = this._trackKey(track);
+
         if (this._currentTrackKey === trackKey && (this._syncedLines.length > 0 || this._plainText)) {
             return;
         }
 
         if (this._cache.has(trackKey)) {
-            const cached = this._cache.get(trackKey);
-            this._applyLyrics(cached, track);
+            this._applyLyrics(this._cache.get(trackKey), track);
+            return;
+        }
+
+        const stored = this._readPersisted(trackKey);
+        if (stored) {
+            this._cache.set(trackKey, stored);
+            this._applyLyrics(stored, track);
             return;
         }
 
         this._currentTrackKey = trackKey;
         this._showLoading(track);
 
+        // Skipping tracks quickly used to let an older, slower fetch land after
+        // the newer one and overwrite the panel with the wrong song's lyrics.
+        const seq = this._fetchSeq = (this._fetchSeq || 0) + 1;
+        this._instrumentalHit = null;
+
         try {
             this._isFetching = true;
 
             let data = await this._fetchExact(track.title, track.artist, track.album, track.duration);
-            
+
             if (!data) {
-                data = await this._fetchSearch(track.title, track.artist);
+                data = await this._fetchSearch(track.title, track.artist, track.duration);
             }
+
+            // LRCLIB lists instrumental tracks with no words at all. Only fall
+            // back to that once the search has failed too -- otherwise the bare
+            // entry shadows the lyrics that search would have found.
+            if (!data) data = this._instrumentalHit;
+
+            if (seq !== this._fetchSeq) return;
 
             if (data) {
                 this._cache.set(trackKey, data);
+                this._persist(trackKey, data);
                 this._applyLyrics(data, track);
             } else {
                 this._showNotFound(track);
             }
         } catch (e) {
             console.warn('Lyrics fetch error:', e);
-            this._showNotFound(track);
+            if (seq === this._fetchSeq) this._showNotFound(track);
         } finally {
             this._isFetching = false;
         }
     },
 
     /**
-     * LRCLIB exact match endpoint
+     * LRCLIB exact match endpoint.
      */
     async _fetchExact(title, artist, album, duration) {
-        try {
-            const params = new URLSearchParams({
-                track_name: title,
-                artist_name: artist,
-            });
-            if (album) params.set('album_name', album);
-            if (duration) params.set('duration', Math.round(duration));
+        const base = {
+            track_name: this._cleanTitle(title),
+            artist_name: this._cleanArtist(artist)
+        };
 
-            const res = await fetch(`https://lrclib.net/api/get?${params}`, {
+        // LRCLIB rejects the lookup when the duration is off by more than a
+        // couple of seconds, so a Deezer duration for a remaster or an extended
+        // cut loses an entry that is otherwise sitting right there. Try the
+        // precise query first, then the same one without duration/album.
+        const withMeta = { ...base };
+        if (album) withMeta.album_name = album;
+        if (duration) withMeta.duration = Math.round(duration);
+
+        for (const params of [withMeta, base]) {
+            const data = await this._lrclibGet(`https://lrclib.net/api/get?${new URLSearchParams(params)}`);
+            if (!data) continue;
+            if (data.syncedLyrics || data.plainLyrics) return data;
+            // Hold it aside. "Kiss Me More" has an exact-duration instrumental
+            // entry on LRCLIB, so returning it here would hide the lyrics that
+            // the search fallback goes on to find.
+            if (data.instrumental && !this._instrumentalHit) this._instrumentalHit = data;
+        }
+        return null;
+    },
+
+    async _lrclibGet(url) {
+        try {
+            const res = await fetch(url, {
                 headers: { 'User-Agent': 'MusicFree/1.0' },
                 signal: AbortSignal.timeout(5000)
             });
             if (!res.ok) return null;
-            const data = await res.json();
-            if (data.syncedLyrics || data.plainLyrics) return data;
-            return null;
-        } catch {
+            return await res.json();
+        } catch (e) {
             return null;
         }
     },
 
     /**
-     * LRCLIB search fallback
+     * LRCLIB search fallback. The old version kept the first result whose title
+     * merely overlapped and ignored the artist entirely, so a cover or a live
+     * take could win. Score on title, artist and duration, and prefer a
+     * time-synced entry over a plain one.
      */
-    async _fetchSearch(title, artist) {
-        try {
-            const query = `${title} ${artist}`;
-            const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
-                headers: { 'User-Agent': 'MusicFree/1.0' },
-                signal: AbortSignal.timeout(5000)
-            });
-            if (!res.ok) return null;
-            const results = await res.json();
-            if (!Array.isArray(results) || results.length === 0) return null;
+    async _fetchSearch(title, artist, duration) {
+        const wantTitle = this._cleanTitle(title).toLowerCase();
+        const wantArtist = this._cleanArtist(artist).toLowerCase();
+        const query = `${wantTitle} ${wantArtist}`.trim();
 
-            const titleLower = title.toLowerCase();
-            
-            const best = results.find(r => 
-                r.trackName?.toLowerCase().includes(titleLower) ||
-                titleLower.includes(r.trackName?.toLowerCase())
-            ) || results[0];
+        const results = await this._lrclibGet(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`);
+        if (!Array.isArray(results) || results.length === 0) return null;
 
-            if (best.syncedLyrics || best.plainLyrics) return best;
-            return null;
-        } catch {
+        const scored = results
+            .filter(r => r && (r.syncedLyrics || r.plainLyrics || r.instrumental))
+            .map(r => {
+                const t = String(r.trackName || '').toLowerCase();
+                const a = String(r.artistName || '').toLowerCase();
+                let score = 0;
+                if (t === wantTitle) score += 60;
+                else if (t.includes(wantTitle)) score += 40;
+                else if (wantTitle.includes(t)) score += 25;
+                if (wantArtist) {
+                    if (a === wantArtist) score += 30;
+                    else if (a.includes(wantArtist) || wantArtist.includes(a)) score += 15;
+                }
+                if (duration && r.duration) {
+                    score += Math.max(0, 15 - Math.abs(r.duration - duration) * 3);
+                }
+                if (r.syncedLyrics) score += 10;
+                // An instrumental-only result is worth far less than any entry
+                // that actually carries words.
+                if (!r.syncedLyrics && !r.plainLyrics) score -= 200;
+                return { r, score };
+            })
+            .sort((x, y) => y.score - x.score);
+
+        if (!scored.length) return null;
+        const best = scored[0].r;
+        if (!best.syncedLyrics && !best.plainLyrics) {
+            if (!this._instrumentalHit) this._instrumentalHit = best;
             return null;
         }
+        return best;
     },
 
     /**
      * Apply lyrics data to the UI
      */
     _applyLyrics(data, track) {
-        this._currentTrackKey = `${track.title}-${track.artist}`;
-        
+        this._currentTrackKey = this._trackKey(track);
+        this._renderMeta(track, data);
+
         if (data.syncedLyrics) {
             this._syncedLines = this._parseSyncedLyrics(data.syncedLyrics);
             this._plainText = '';
@@ -277,6 +445,11 @@ const Lyrics = {
             this._syncedLines = [];
             this._plainText = data.plainLyrics;
             this._renderPlain(track);
+        } else {
+            // LRCLIB lists instrumental tracks with no lyrics at all.
+            this._syncedLines = [];
+            this._plainText = '';
+            this._showNotFound(track, data);
         }
     },
 
@@ -356,7 +529,8 @@ const Lyrics = {
         if (!this._contentEl) return;
 
         const trackName = document.querySelector('.lyrics-track-name');
-        if (trackName) trackName.textContent = `— ${track.title}`;
+        if (trackName) trackName.textContent = `\u2014 ${track.title}`;
+        this._renderMeta(track, null);
 
         this._contentEl.innerHTML = `
             <div class="lyrics-placeholder">
@@ -369,19 +543,29 @@ const Lyrics = {
     /**
      * Show not found state
      */
-    _showNotFound(track) {
+    _showNotFound(track, data) {
         if (!this._contentEl) return;
 
         const trackName = document.querySelector('.lyrics-track-name');
-        if (trackName) trackName.textContent = `— ${track.title}`;
+        if (trackName) trackName.textContent = `\u2014 ${track.title}`;
+        this._renderMeta(track, data || null);
+
+        const instrumental = !!(data && data.instrumental);
+        const heading = instrumental ? 'Instrumental track' : 'No lyrics found';
+        const hint = instrumental
+            ? 'LRCLIB lists this one without words'
+            : 'Check the spelling of the title or artist';
 
         this._contentEl.innerHTML = `
             <div class="lyrics-placeholder">
                 <svg class="w-12 h-12 text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${instrumental
+                        ? 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM21 16c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z'
+                        : 'M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'}"/>
                 </svg>
-                <p>No lyrics found</p>
-                <p class="text-sm text-gray-500 mt-1">"${track.title}" by ${track.artist}</p>
+                <p>${heading}</p>
+                <p class="text-sm text-gray-500 mt-1">"${this._esc(track.title)}" by ${this._esc(track.artist)}</p>
+                <p class="text-xs text-gray-600 mt-2">${hint}</p>
             </div>
         `;
     },
@@ -496,6 +680,9 @@ const Lyrics = {
         this._activeLine = -1;
         this._currentTrackKey = null;
         this._lineElements = [];
+        // Discard any in-flight fetch for the previous track.
+        this._fetchSeq = (this._fetchSeq || 0) + 1;
+        this._instrumentalHit = null;
 
         if (this._isOpen && track) {
             this.fetchForTrack(track);

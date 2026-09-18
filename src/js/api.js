@@ -14,6 +14,63 @@
  * All three files must stay in sync to avoid 403 errors.
  */
 
+/**
+ * Scoring helpers for YouTube candidate selection.
+ *
+ * Deezer supplies the track list the user sees; this scoring only decides WHICH
+ * YouTube upload of that track gets played. A wrong pick here is silent: the
+ * title on screen comes from Deezer, so the user reads "Not You" while hearing
+ * the instrumental. Nothing downstream can detect that.
+ */
+
+// Title words carrying no signal - never penalise these as "extra".
+const TITLE_NOISE_WORDS = ['official', 'video', 'audio', 'music', 'lyric', 'lyrics',
+    'hd', 'remix', 'feat', 'ft'];
+
+// Alternative recordings. Penalised only when the user did not ask for one.
+const VERSION_WORDS = ['remix', 'cover', 'live', 'instrumental', 'karaoke', 'acoustic',
+    'slowed', 'sped', 'nightcore', 'mashup', 'reverb', '8d', 'remastered', 'extended',
+    // Alt takes: "Not You (Restrung Performance)" is not the track that was clicked.
+    'version', 'restrung', 'performance', 'orchestral', 'reprise', 'demo',
+    // Dubbed recordings: "Not You" vs "Not You (Chinese Version)" is a different
+    // song to the listener, so it must not win on channel or duration alone.
+    'chinese', 'japanese', 'korean', 'spanish', 'indonesian', 'english', 'thai',
+    'vietnamese', 'hindi', 'arabic', 'turkish', 'french', 'german', 'portuguese',
+    'russian', 'malay', 'tagalog', 'dutch', 'italian', 'polish'];
+
+const VERSION_PENALTY = 40;   // enough to outrank an equally-matching version
+const OFFICIAL_BONUS = 25;    // tie-breaker, not a relevance override
+
+/** Penalty for alternative versions the query did not request. */
+function versionPenalty(title, queryLower) {
+    let penalty = 0;
+    for (const w of VERSION_WORDS) {
+        if (new RegExp(`\\b${w}\\b`).test(title) && !new RegExp(`\\b${w}`).test(queryLower)) {
+            penalty += VERSION_PENALTY;
+        }
+    }
+    return penalty;
+}
+
+/**
+ * Is this upload from one of the track's credited artists?
+ * "- Topic" = distributor-managed artist channel, VEVO = label channel.
+ * The query is "{artist} {title}", so an uploader whose name appears in the
+ * query is one of the credited artists. Without this, a collaboration credited
+ * to "Alan Walker, Emma Steinbakken" never marks Emma's channel as official,
+ * even though hers is where the actual track is published.
+ */
+function isOfficialChannel(uploader, queryLower) {
+    if (uploader.includes(' - topic') || uploader.includes('vevo')) return true;
+    const clean = s => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const name = clean(uploader);
+    if (!name) return false;
+    const q = clean(queryLower);
+    if (q === name || q.startsWith(name + ' ')) return true;
+    // Whole-phrase containment, padded to avoid partial-word hits.
+    return ` ${q} `.includes(` ${name} `);
+}
+
 const MusicAPI = {
     config: {
         deezer: {
@@ -483,7 +540,7 @@ const MusicAPI = {
         // Step 1: YouTube via Piped (filtered — music_songs)
         console.log(`[Step 1] Piped filtered search: ${query}`);
         try {
-            const vids = await this.piped.findVideoIds(query, track.duration, 'music_songs');
+            const vids = await this.piped.findVideoIds(query, track.duration, 'music_songs', track.title);
             if (vids.length > 0) {
                 allVideos.push(...vids);
             }
@@ -493,7 +550,7 @@ const MusicAPI = {
         if (allVideos.length < 3) {
             console.log(`[Step 2] Piped unfiltered search: ${query}`);
             try {
-                const vids = await this.piped.findVideoIds(query, track.duration, null);
+                const vids = await this.piped.findVideoIds(query, track.duration, null, track.title);
                 for (const v of vids) {
                     if (!allVideos.some(av => av.id === v.id)) allVideos.push(v);
                 }
@@ -504,7 +561,7 @@ const MusicAPI = {
         if (allVideos.length < 3) {
             console.log(`[Step 3] Invidious search: ${query}`);
             try {
-                const vid = await this.invidious.findVideoId(query, track.duration);
+                const vid = await this.invidious.findVideoId(query, track.duration, track.title);
                 if (vid && !allVideos.some(av => av.id === vid)) {
                     allVideos.push({ id: vid, title: '' });
                 }
@@ -710,7 +767,7 @@ const MusicAPI = {
          * Returns an array of up to 3 video IDs, ranked by match quality.
          * Uses title matching + duration proximity to avoid wrong songs.
          */
-        async findVideoIds(query, expectedDuration = 0, filter = 'music_songs') {
+        async findVideoIds(query, expectedDuration = 0, filter = 'music_songs', wantedTitle = null) {
             const queryLower = query.toLowerCase();
             const filterParam = filter ? `&filter=${filter}` : '';
 
@@ -731,17 +788,28 @@ const MusicAPI = {
                     const uploader = (item.uploaderName || '').toLowerCase();
                     let score = 0;
 
-                    // Check if the result title contains key words from search query
-                    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
-                    const matchedWords = queryWords.filter(w => 
-                        title.includes(w) || uploader.includes(w)
-                    );
-                    score += (matchedWords.length / queryWords.length) * 100;
+                    // Relevance = match against the SONG TITLE that was clicked,
+                    // not the whole "{artist} {title}" query. Counting the
+                    // uploader here gave every upload on the headliner's channel
+                    // full marks for the artist's own name - which is how
+                    // "Not You (Instrumental)" beat the real track published on
+                    // a collaborator's channel. Channel identity is rewarded
+                    // separately by the artist-match bonus below.
+                    const target = (wantedTitle || queryLower).toLowerCase();
+                    const queryWords = target.split(/\s+/).filter(w => w.length > 2);
+                    // Guard: an all-short target leaves queryWords empty and
+                    // 0/0 is NaN, which makes the sort a no-op and hands the
+                    // pick to whatever order YouTube returned.
+                    if (queryWords.length > 0) {
+                        const matchedWords = queryWords.filter(w => title.includes(w));
+                        score += (matchedWords.length / queryWords.length) * 100;
+                    }
 
-                    // Duration match bonus (max 50 points)
+                    // Duration is a weak tie-breaker (max 20 points). At 50 a
+                    // 1-second match outranked title relevance.
                     if (expectedDuration > 0) {
                         const durationDiff = Math.abs(item.duration - expectedDuration);
-                        score += Math.max(0, 50 - durationDiff * 2);
+                        score += Math.max(0, 20 - durationDiff * 2);
                     }
 
                     // Bonus: "official" in title suggests original version (+20)
@@ -749,27 +817,11 @@ const MusicAPI = {
                         score += 20;
                     }
 
-                    // Bonus: uploader/channel name matches the artist (+25)
-                    const artistWords = queryLower.split(/\s+/).filter(w => w.length > 2);
-                    const artistMatchCount = artistWords.filter(w => uploader.includes(w)).length;
-                    if (artistMatchCount >= 2 || (artistWords.length <= 2 && artistMatchCount >= 1)) {
-                        score += 25;
-                    }
-
-                    // Heavy penalty for alternative/modified versions (-30 each)
-                    const altVersionPatterns = [
-                        'acoustic', 'live', 'cover', 'remix', 'instrumental',
-                        'karaoke', 'slowed', 'reverb', 'sped up', 'nightcore',
-                        'mashup', 'unplugged', 'stripped', 'demo', 'radio edit',
-                        'extended', 'concert', 'session', 'performance',
-                        'piano version', 'guitar version', 'metal version',
-                        'bass boosted', '8d audio', 'lofi', 'lo-fi'
-                    ];
-                    for (const pattern of altVersionPatterns) {
-                        if (title.includes(pattern) && !queryLower.includes(pattern)) {
-                            score -= 30;
-                        }
-                    }
+                    // Push down versions the user did not ask for, and reward the
+                    // credited artist's own channel. versionPenalty covers the
+                    // language dubs and alt takes the old inline list missed.
+                    score -= versionPenalty(title, queryLower);
+                    if (isOfficialChannel(uploader, queryLower)) score += OFFICIAL_BONUS;
 
                     // Light penalty for extra words not in query
                     const safeWords = new Set([
@@ -1013,15 +1065,17 @@ const MusicAPI = {
                     const author = (item.author || '').toLowerCase();
                     let score = 0;
 
-                    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
-                    const matchedWords = queryWords.filter(w =>
-                        title.includes(w) || author.includes(w)
-                    );
-                    score += (matchedWords.length / queryWords.length) * 100;
+                    // Score the song title only (see piped.findVideoIds).
+                    const target = (wantedTitle || queryLower).toLowerCase();
+                    const queryWords = target.split(/\s+/).filter(w => w.length > 2);
+                    if (queryWords.length > 0) {
+                        const matchedWords = queryWords.filter(w => title.includes(w));
+                        score += (matchedWords.length / queryWords.length) * 100;
+                    }
 
                     if (expectedDuration > 0) {
                         const durationDiff = Math.abs(item.lengthSeconds - expectedDuration);
-                        score += Math.max(0, 50 - durationDiff * 2);
+                        score += Math.max(0, 20 - durationDiff * 2);
                     }
 
                     // Bonus: "official" in title (+20)
@@ -1029,27 +1083,10 @@ const MusicAPI = {
                         score += 20;
                     }
 
-                    // Bonus: channel name matches the artist (+25)
-                    const artistWords = queryLower.split(/\s+/).filter(w => w.length > 2);
-                    const artistMatchCount = artistWords.filter(w => author.includes(w)).length;
-                    if (artistMatchCount >= 2 || (artistWords.length <= 2 && artistMatchCount >= 1)) {
-                        score += 25;
-                    }
-
-                    // Heavy penalty for alternative/modified versions (-30 each)
-                    const altVersionPatterns = [
-                        'acoustic', 'live', 'cover', 'remix', 'instrumental',
-                        'karaoke', 'slowed', 'reverb', 'sped up', 'nightcore',
-                        'mashup', 'unplugged', 'stripped', 'demo', 'radio edit',
-                        'extended', 'concert', 'session', 'performance',
-                        'piano version', 'guitar version', 'metal version',
-                        'bass boosted', '8d audio', 'lofi', 'lo-fi'
-                    ];
-                    for (const pattern of altVersionPatterns) {
-                        if (title.includes(pattern) && !queryLower.includes(pattern)) {
-                            score -= 30;
-                        }
-                    }
+                    // Push down unrequested versions and reward the artist's own
+                    // channel (see piped.findVideoIds).
+                    score -= versionPenalty(title, queryLower);
+                    if (isOfficialChannel(author, queryLower)) score += OFFICIAL_BONUS;
 
                     // Light penalty for extra words not in query
                     const safeWords = new Set([

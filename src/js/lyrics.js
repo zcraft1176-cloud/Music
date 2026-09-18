@@ -233,8 +233,12 @@ const Lyrics = {
         if (!this._metaEl) return;
         const parts = [];
         if (track.artist) parts.push(track.artist);
+        // LRCLIB sometimes files the artist name in the album field; showing it
+        // twice reads like a bug.
         const album = (data && data.albumName) || track.album;
-        if (album) parts.push(album);
+        if (album && album.toLowerCase() !== String(track.artist || '').toLowerCase()) {
+            parts.push(album);
+        }
         const dur = (data && data.duration) || track.duration;
         if (dur) parts.push(this._formatDuration(dur));
         if (data && data.__fromCache) parts.push('cached');

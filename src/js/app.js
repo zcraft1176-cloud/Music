@@ -19,6 +19,7 @@ const App = {
             PlaylistManager.init();
             if (typeof PlaylistImporter !== 'undefined') PlaylistImporter.init();
             LikedSongs.init();
+            if (typeof Downloader !== 'undefined') Downloader.init();
             Search.init();
 
             // Load initial content

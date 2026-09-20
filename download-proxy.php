@@ -91,23 +91,45 @@ if (isset($_GET['videoId'])) {
     $outputFile = $tempDir . DIRECTORY_SEPARATOR . 'audio';
     $youtubeUrl = "https://www.youtube.com/watch?v=$videoId";
     
-    // Download + convert to MP3 using yt-dlp with ffmpeg
-    // Note: use -o with fixed filename, yt-dlp will add extension automatically
-    $cmd = escapeshellarg($ytdlp)
-        . ' --ffmpeg-location ' . escapeshellarg($projectDir)
-        . ' -x --audio-format mp3 --audio-quality 128K'
-        . ' --no-warnings --no-playlist --no-check-certificates'
-        . ' -o "' . str_replace('"', '', $outputFile) . '.%(ext)s"'
-        . ' ' . escapeshellarg($youtubeUrl)
-        . ' 2>&1';
+    // Download + convert to MP3 using yt-dlp with ffmpeg.
+    // Two attempts: yt-dlp's default client selection first, then the android
+    // client, which still serves downloadable formats when the default one
+    // starts returning HTTP 403. Audio-only formats (opus/m4a ~130k) come from
+    // these clients, so 192K as the MP3 target is not overselling it.
+    $attempts = [
+        '' => '',
+        'android' => '--extractor-args ' . escapeshellarg('youtube:player_client=android'),
+    ];
     
     $output = [];
     $returnCode = 0;
-    exec($cmd, $output, $returnCode);
-    
-    // Find the MP3 file
     $mp3File = $outputFile . '.mp3';
     
+    foreach ($attempts as $client => $extractorArgs) {
+        $cmd = escapeshellarg($ytdlp)
+            . ' --ffmpeg-location ' . escapeshellarg($projectDir)
+            . ' -f bestaudio/best'
+            . ' -x --audio-format mp3 --audio-quality 192K'
+            . ' --embed-metadata'
+            . ' --no-warnings --no-playlist --no-check-certificates';
+        if ($extractorArgs !== '') {
+            $cmd .= ' ' . $extractorArgs;
+        }
+        $cmd .= ' -o "' . str_replace('"', '', $outputFile) . '.%(ext)s"'
+            . ' ' . escapeshellarg($youtubeUrl)
+            . ' 2>&1';
+        
+        $attemptOutput = [];
+        exec($cmd, $attemptOutput, $returnCode);
+        $output = array_merge($output, ["--- attempt (client: " . ($client ?: 'default') . ") ---"], $attemptOutput);
+        
+        if (file_exists($mp3File) || !empty(glob($tempDir . DIRECTORY_SEPARATOR . '*.mp3'))) {
+            break;
+        }
+        $output[] = "attempt failed; retrying with the next client";
+    }
+    
+    // Find the MP3 file
     if (!file_exists($mp3File)) {
         // Try to find any mp3 in the temp dir
         $mp3Files = glob($tempDir . DIRECTORY_SEPARATOR . '*.mp3');

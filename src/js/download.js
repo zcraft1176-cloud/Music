@@ -1,12 +1,15 @@
 /**
- * Download Module v3.2 — Smart Multi-Strategy
- * 
- * Strategy priority:
- *   1. Direct URL (Internet Archive / Jamendo) → proxy download langsung
- *   2. YouTube → resolve direct audio URL via Piped/Invidious → proxy download
- *   3. Fallback → copy YouTube URL to clipboard + buka cobalt.tools
- * 
- * Local (XAMPP): yt-dlp + ffmpeg via download-proxy.php
+ * Download Module v3.3 — Local installs only
+ *
+ * The download path shells out to yt-dlp.exe + ffmpeg.exe through
+ * download-proxy.php, so it only works where those binaries exist: a local
+ * XAMPP install. Vercel is static + serverless -- no process spawning, no
+ * filesystem, and the binaries are 220 MB. On a deployed host the buttons are
+ * removed rather than left to fail.
+ *
+ * Local strategy:
+ *   YouTube  → resolve videoId → download-proxy.php (yt-dlp → MP3)
+ *   Direct   → download-proxy.php?url= (curl passthrough)
  */
 
 const Downloader = {
@@ -14,6 +17,12 @@ const Downloader = {
     isLocal: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
 
     init() {
+        // Nothing to wire up on a deployed host -- _hideButtons has removed them.
+        if (!this.isLocal) {
+            this._hideButtons();
+            return;
+        }
+
         document.getElementById('mobileExpDownload')?.addEventListener('click', () => {
             if (Player.currentTrack) {
                 this.download(Player.currentTrack);
@@ -21,6 +30,24 @@ const Downloader = {
                 UI.showToast('No track is playing', 'warning');
             }
         });
+
+        document.getElementById('desktopDownloadBtn')?.addEventListener('click', () => {
+            if (Player.currentTrack) {
+                this.download(Player.currentTrack);
+            } else {
+                UI.showToast('No track is playing', 'warning');
+            }
+        });
+    },
+
+    /**
+     * Strip every download affordance. Called on deployed hosts, where the
+     * yt-dlp/ffmpeg toolchain the proxy needs does not exist.
+     */
+    _hideButtons() {
+        document.getElementById('desktopDownloadBtn')?.remove();
+        document.getElementById('mobileExpDownload')?.remove();
+        document.querySelectorAll('.download-track-btn').forEach(btn => btn.remove());
     },
 
     /**
@@ -42,103 +69,13 @@ const Downloader = {
         const filename = this._sanitizeFilename(`${track.artist} - ${track.title}`);
 
         try {
-            // === LOCAL (XAMPP) ===
-            if (this.isLocal) {
-                await this._downloadLocal(track, filename);
-                return;
-            }
-
-            // === VERCEL / PRODUCTION ===
-            
-            // Strategy 1: Direct audio URL (Internet Archive / Jamendo)
-            if (track.audioUrl && !track.audioUrl.startsWith('yt:')) {
-                UI.showToast(`⬇️ Downloading: ${track.title}...`, 'info');
-                const success = await this._downloadViaProxy(track.audioUrl, filename + '.mp3');
-                if (success) return;
-            }
-
-            // Strategy 2: Resolve direct audio stream from YouTube
-            UI.showToast(`🔍 Mencari sumber download: ${track.title}...`, 'info');
-            
-            // Make sure we have a videoId first
-            if (!track.videoId) {
-                await MusicAPI.resolveAudioUrl(track);
-            }
-
-            if (track.videoId) {
-                // Try getting direct audio stream URL via Piped/Invidious
-                const directAudio = await MusicAPI.getDirectAudioUrl(track);
-                if (directAudio && directAudio.url) {
-                    const ext = directAudio.format === 'webm' ? '.webm' 
-                              : directAudio.format === 'm4a' ? '.m4a' 
-                              : '.mp3';
-                    UI.showToast(`⬇️ Downloading: ${track.title}...`, 'info');
-                    const success = await this._downloadViaProxy(directAudio.url, filename + ext);
-                    if (success) return;
-                }
-            }
-
-            // Strategy 3: Fallback — copy YouTube URL to clipboard
-            if (track.videoId) {
-                this._fallbackClipboard(track);
-            } else {
-                UI.showToast('❌ Tidak dapat menemukan sumber download', 'error');
-            }
-
+            await this._downloadLocal(track, filename);
         } catch (error) {
             console.error('[Download] Error:', error);
-            // Last resort fallback
-            if (track.videoId) {
-                this._fallbackClipboard(track);
-            } else {
-                UI.showToast(`❌ Download gagal: ${error.message}`, 'error');
-            }
+            UI.showToast(`❌ Download gagal: ${error.message}`, 'error');
         } finally {
             this.activeDownloads.delete(track.id);
             this._updateDownloadButton(track.id, 'idle');
-        }
-    },
-
-    /**
-     * Download via Vercel proxy (/api/download?url=...)
-     * Streams the audio through our serverless function to avoid CORS
-     */
-    async _downloadViaProxy(audioUrl, filename) {
-        try {
-            const proxyUrl = `/api/download?url=${encodeURIComponent(audioUrl)}`;
-            
-            const response = await fetch(proxyUrl);
-            if (!response.ok) {
-                console.warn('[Download] Proxy returned:', response.status);
-                return false;
-            }
-
-            const blob = await response.blob();
-            if (blob.size < 1000) {
-                console.warn('[Download] Blob too small, likely error:', blob.size);
-                return false;
-            }
-
-            // Create download link
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            }, 1000);
-
-            UI.showToast(`✅ Download selesai: ${filename}`, 'success');
-            return true;
-
-        } catch (error) {
-            console.error('[Download] Proxy download failed:', error);
-            return false;
         }
     },
 
@@ -155,39 +92,15 @@ const Downloader = {
             window.location.href = `download-proxy.php?videoId=${encodeURIComponent(track.videoId)}&title=${encodeURIComponent(baseName)}`;
             UI.showToast(`✅ Download dimulai: ${baseName}.mp3`, 'success');
         } else if (track.audioUrl && !track.audioUrl.startsWith('yt:')) {
-            // Direct audio URL — just open it
+            // Direct audio URL — hand it to the proxy so it lands as a file.
             const a = document.createElement('a');
-            a.href = track.audioUrl;
+            a.href = `download-proxy.php?url=${encodeURIComponent(track.audioUrl)}&filename=${encodeURIComponent(baseName + '.mp3')}`;
             a.download = baseName + '.mp3';
             a.click();
             UI.showToast(`✅ Download dimulai: ${baseName}.mp3`, 'success');
         } else {
             UI.showToast('❌ Tidak dapat menemukan sumber download', 'error');
         }
-    },
-
-    /**
-     * Fallback: copy YouTube URL to clipboard + open cobalt.tools
-     */
-    _fallbackClipboard(track) {
-        const ytUrl = `https://www.youtube.com/watch?v=${track.videoId}`;
-
-        // Copy to clipboard
-        navigator.clipboard.writeText(ytUrl).then(() => {
-            UI.showToast('📋 Link YouTube sudah di-copy! Paste di cobalt.tools', 'success');
-        }).catch(() => {
-            // Fallback for older browsers
-            const input = document.createElement('input');
-            input.value = ytUrl;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            document.body.removeChild(input);
-            UI.showToast('📋 Link YouTube sudah di-copy! Paste di cobalt.tools', 'success');
-        });
-
-        // Open cobalt.tools
-        window.open('https://cobalt.tools/', '_blank');
     },
 
     /**

@@ -12,7 +12,6 @@ const UI = {
      */
     init() {
         this.setupNavigation();
-        this.setupClearQueue();
     },
 
     /**
@@ -56,16 +55,6 @@ const UI = {
         // Set home as active by default
         const homeBtn = document.querySelector('[data-view="home"]');
         if (homeBtn) this.setActiveNav(homeBtn);
-    },
-
-    /**
-     * Setup clear queue button
-     */
-    setupClearQueue() {
-        const clearBtn = document.getElementById('clearQueueBtn');
-        clearBtn?.addEventListener('click', () => {
-            Player.clearQueue();
-        });
     },
 
     /**
@@ -401,12 +390,6 @@ const UI = {
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                             </svg>
                         </button>
-                        <button class="add-queue-btn p-2 text-gray-400 hover:text-white transition-colors" title="Add to queue">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                            </svg>
-                        </button>
-
                         <button class="add-playlist-btn p-2 text-gray-400 hover:text-white transition-colors" title="Add to playlist">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
@@ -511,18 +494,6 @@ const UI = {
             });
         });
 
-        // Add to queue buttons
-        container.querySelectorAll('.add-queue-btn').forEach((btn) => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const card = btn.closest('.track-card');
-                const trackIndex = parseInt(card.dataset.trackIndex);
-                if (tracks[trackIndex]) {
-                    Player.addToQueue(tracks[trackIndex]);
-                }
-            });
-        });
-
         // Add to playlist buttons
         container.querySelectorAll('.add-playlist-btn').forEach((btn) => {
             btn.addEventListener('click', (e) => {
@@ -590,8 +561,6 @@ const UI = {
                 return this._history || [];
             case 'browse':
                 return this._tracksByView.browse || [];
-            case 'queue':
-                return Player.queue;
             case 'playlist':
                 const playlist = PlaylistManager.playlists.find(p => p.id === PlaylistManager.currentPlaylistId);
                 return playlist?.tracks || [];
@@ -893,52 +862,6 @@ const UI = {
             this.renderTrackRow(track, index, true, playlist.id)
         ).join('');
         this.attachTrackListeners(container);
-    },
-
-    /**
-     * Update queue UI
-     */
-    updateQueueUI() {
-        const container = document.getElementById('queueContent');
-        if (!container) return;
-
-        this._tracksByView.queue = Player.queue;
-
-        if (Player.queue.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-12">
-                    <svg class="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
-                    </svg>
-                    <p class="text-gray-400">Queue is empty</p>
-                    <p class="text-gray-500 text-sm mt-2">Add tracks from search or playlists</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = Player.queue.map((track, index) => `
-            <div class="flex items-center gap-4 p-3 rounded-lg ${index === Player.currentIndex ? 'bg-dark-100 border border-primary/30' : 'hover:bg-dark-100'} transition-colors">
-                <div class="w-8 text-center text-sm text-gray-400">
-                    ${index === Player.currentIndex && Player.isPlaying ? `
-                        <div class="playing-indicator mx-auto">
-                            <span></span><span></span><span></span>
-                        </div>
-                    ` : index + 1}
-                </div>
-                <img src="${track.cover}" alt="" class="w-10 h-10 rounded object-cover" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%234a5568%22><path d=%22M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z%22/></svg>'">
-                <div class="flex-1 min-w-0 cursor-pointer" onclick="Player.playFromQueue(${index})">
-                    <p class="text-sm truncate">${this.escapeHtml(track.title)}</p>
-                    <p class="text-xs text-gray-400 truncate">${this.escapeHtml(track.artist)}</p>
-                </div>
-                <span class="text-xs text-gray-400">${Player.formatTime(track.duration)}</span>
-                <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="Player.removeFromQueue(${index})">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-        `).join('');
     },
 
     // ========================================

@@ -1,0 +1,28 @@
+[
+  {
+    "label": "Alan Walker Not You",
+    "query": "Alan Walker Not You",
+    "wantedTitle": "Not You",
+    "duration": 153,
+    "items": [
+      { "title": "Alan Walker x Emma Steinbakken - Not You (Live Performance)", "uploaderName": "Alan Walker", "duration": 182 },
+      { "title": "Alan Walker & Emma Steinbakken - Not You (Lyrics)", "uploaderName": "7clouds Rock", "duration": 151 },
+      { "title": "Alan Walker & Emma Steinbakken - Not You (Visualizer)", "uploaderName": "Alan Walker", "duration": 151 },
+      { "title": "[1 HOUR] Alan Walker - Not You (Lyrics) ft. Emma Steinbakken", "uploaderName": "Agata Haru", "duration": 3729 },
+      { "title": "Not You - Alan Walker & Emma Steinbakken (Lirik Lagu Terjemahan)", "uploaderName": "DeLirik", "duration": 158 },
+      { "title": "Alan Walker - Not You (Official Video)", "uploaderName": "Alan Walker", "duration": 154 }
+    ]
+  },
+  {
+    "label": "BTS Dynamite",
+    "query": "BTS Dynamite",
+    "wantedTitle": "Dynamite",
+    "duration": 199,
+    "items": [
+      { "title": "BTS (방탄소년단) 'Dynamite' Official MV (Choreography ver.)", "uploaderName": "HYBE LABELS", "duration": 206 },
+      { "title": "BTS (방탄소년단) 'Dynamite' Official MV", "uploaderName": "HYBE LABELS", "duration": 224 },
+      { "title": "BTS - Dynamite (Lyrics)", "uploaderName": "Cakes & Eclairs", "duration": 199 },
+      { "title": "Dynamite (EDM Remix)", "uploaderName": "BTS - Topic", "duration": 199 }
+    ]
+  }
+]

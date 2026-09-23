@@ -354,7 +354,7 @@ const LikedSongs = {
                 .collection('settings').doc('likedSongs')
                 .set({ songs: this.songs, updatedAt: new Date().toISOString() });
         } catch (e) {
-            console.error('Cloud sync liked songs error:', e);
+            Auth.warnCloudFailure('liked songs save', e);
         }
     },
 

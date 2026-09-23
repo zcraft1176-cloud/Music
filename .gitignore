@@ -25,6 +25,9 @@ desktop.ini
 yt-dlp.exe
 ffmpeg.exe
 
+# Static Linux extractor, fetched at build time by scripts/fetch-ytdlp.js
+bin/
+
 # Flutter app (separate repo)
 msicfree_app/
 

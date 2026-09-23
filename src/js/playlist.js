@@ -476,7 +476,7 @@ const PlaylistManager = {
                     updatedAt: playlist.updatedAt
                 });
         } catch (e) {
-            console.error('Cloud save error:', e);
+            Auth.warnCloudFailure('playlist save', e);
         }
     },
 
@@ -493,7 +493,7 @@ const PlaylistManager = {
                 .collection('playlists').doc(id)
                 .delete();
         } catch (e) {
-            console.error('Cloud delete error:', e);
+            Auth.warnCloudFailure('playlist delete', e);
         }
     }
 };

@@ -106,6 +106,22 @@ const Auth = {
     },
 
     /**
+     * Report a Firestore write failure once.
+     *
+     * A synchronous try/catch around a NON-awaited .set()/.delete() can never
+     * catch the rejected promise, so an un-awaited write failing looked exactly
+     * like one that succeeded. Data stays in localStorage either way, so say it
+     * once rather than on every keystroke.
+     */
+    _cloudWarned: false,
+    warnCloudFailure(scope, e) {
+        console.error(`Firestore ${scope} failed:`, e?.code || e?.message || e);
+        if (this._cloudWarned) return;
+        this._cloudWarned = true;
+        UI.showToast('Cloud sync failed — changes kept on this device only', 'warning');
+    },
+
+    /**
      * Update sidebar UI based on auth state
      */
     updateUI() {

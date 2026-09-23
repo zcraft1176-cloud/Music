@@ -1,7 +1,14 @@
 {
-    "buildCommand": "npm run build:css",
+    "buildCommand": "node scripts/fetch-ytdlp.js && npm run build:css",
     "outputDirectory": ".",
     "functions": {
+        "api/proxy.js": {
+            "maxDuration": 30
+        },
+        "api/ytsearch.js": {
+            "includeFiles": "bin/**",
+            "maxDuration": 30
+        },
         "api/download.js": {
             "maxDuration": 60
         },

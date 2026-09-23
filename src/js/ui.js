@@ -91,10 +91,13 @@ const UI = {
         const grid = document.getElementById('playlistsGrid');
         if (!grid) return;
 
-        const playlists = PlaylistManager.playlists || {};
-        const keys = Object.keys(playlists);
+        // PlaylistManager.playlists is an ARRAY of {id, name, tracks}. It used
+        // to be read here as an object map (`Object.keys` + `playlists[name]`),
+        // so every card threw "tracks.reduce is not a function" via `tracks`
+        // being undefined and the whole page failed to render.
+        const playlists = PlaylistManager.playlists || [];
 
-        if (keys.length === 0) {
+        if (playlists.length === 0) {
             grid.innerHTML = `
                 <div class="col-span-full text-center py-12 text-gray-400">
                     <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,8 +109,8 @@ const UI = {
             return;
         }
 
-        grid.innerHTML = keys.map(name => {
-            const tracks = playlists[name] || [];
+        grid.innerHTML = playlists.map(playlist => {
+            const tracks = playlist.tracks || [];
             const count = tracks.length;
             const coverImg = count > 0 && tracks[0].cover
                 ? `<img src="${tracks[0].cover}" alt="" class="w-full h-full object-cover">`
@@ -117,18 +120,15 @@ const UI = {
                        </svg>
                    </div>`;
 
-            const totalSeconds = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
-            const duration = Player.formatTime(totalSeconds);
-
             return `
-                <div class="bg-dark-200 rounded-xl overflow-hidden cursor-pointer hover:bg-dark-100 transition-colors playlist-card" data-playlist="${name}">
+                <div class="bg-dark-200 rounded-xl overflow-hidden cursor-pointer hover:bg-dark-100 transition-colors playlist-card" data-playlist-id="${playlist.id}">
                     <div class="aspect-square relative">
                         ${coverImg}
                         <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                        <span class="absolute bottom-2 left-3 text-xs text-gray-300">${count} track${count !== 1 ? 's' : ''} • ${duration}</span>
+                        <span class="absolute bottom-2 left-3 text-xs text-gray-300">${count} track${count !== 1 ? 's' : ''}</span>
                     </div>
                     <div class="p-3">
-                        <h4 class="font-semibold truncate">${name}</h4>
+                        <h4 class="font-semibold truncate">${this.escapeHtml(playlist.name)}</h4>
                     </div>
                 </div>`;
         }).join('');
@@ -136,8 +136,7 @@ const UI = {
         // Click handler for cards
         grid.querySelectorAll('.playlist-card').forEach(card => {
             card.addEventListener('click', () => {
-                const name = card.dataset.playlist;
-                PlaylistManager.viewPlaylist(name);
+                PlaylistManager.viewPlaylist(card.dataset.playlistId);
             });
         });
 

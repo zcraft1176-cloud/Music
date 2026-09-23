@@ -172,13 +172,66 @@ const MusicAPI = {
     },
 
     /**
-     * Get proxy URL - auto-detect local vs Vercel
+     * Get proxy URL.
+     *
+     * XAMPP serves the PHP proxy; Vercel runs no PHP at all (it would serve
+     * proxy.php as source text), so the deployed build must use the serverless
+     * /api/proxy function instead. Detected by hostname so the same checkout
+     * works locally and on Vercel.
      */
     getProxyUrl(url) {
-        const proxyBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-            ? 'proxy.php'
-            : '/api/proxy';
+        // Any local install serves proxy.php through Apache, and a phone on
+        // the same wifi reaches that install by its private IP or by the
+        // machine's own name. Asking for /api/proxy there hits the Vercel
+        // serverless function on an Apache host, where nothing answers.
+        const proxyBase = this.isLocalHost() ? 'proxy.php' : '/api/proxy';
         return `${proxyBase}?url=${encodeURIComponent(url)}`;
+    },
+
+    /**
+     * Is this page served by a local install (which can shell out to yt-dlp)?
+     *
+     * A phone on the same wifi reaches that install by its private IP, so the
+     * LAN counts as local too. Single source of truth: player.js asks this to
+     * decide between the stream proxy and the IFrame, and the search fallback
+     * below uses it for the same reason.
+     */
+    isLocalHost() {
+        const h = (typeof location !== 'undefined' && location.hostname) || '';
+        return h === 'localhost' || h === '127.0.0.1'
+            || /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(h)
+            // The machine's own name ("DESKTOP-ABC123") has no dot and only
+            // resolves on this LAN, so it is a local install too.
+            || (h.length > 1 && !h.includes('.') && !/^\d+$/.test(h));
+    },
+
+    /**
+     * Where the yt-dlp-backed search lives.
+     *
+     * Same two backends as getProxyUrl: Apache serves search-audio.php on a
+     * local install, and the /api/ytsearch function runs the same extractor on
+     * Vercel. Search needs no player API, so it is the one piece of the local
+     * path that does survive up there — do NOT gate this on isLocalHost().
+     */
+    searchAudioUrl() {
+        return this.isLocalHost() ? 'search-audio.php' : '/api/ytsearch';
+    },
+
+    /**
+     * Search YouTube through yt-dlp instead of a public instance.
+     *
+     * Returns the same {items:[...]} shape Piped does, so the caller scores it
+     * with identical code and picks the same upload either way.
+     */
+    async extractorSearch(query, n = 5) {
+        try {
+            const res = await fetch(`${this.searchAudioUrl()}?q=${encodeURIComponent(query)}&n=${n}`);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            console.warn('yt-dlp search failed:', e.message);
+            return null;
+        }
     },
 
     setJamendoClientId(id) {
@@ -775,6 +828,14 @@ const MusicAPI = {
                 const data = await this.pipedFetch(
                     `/search?q=${encodeURIComponent(query)}${filterParam}`
                 );
+                const pipedItems = data?.items || [];
+                if (pipedItems.length === 0) {
+                    // MusicAPI., not this. — `this` here is the `piped` object,
+                    // so this.extractorSearch was undefined and every fallback
+                    // search threw "not a function". It has to be reachable from
+                    // inside the object it lives next to.
+                    data = await MusicAPI.extractorSearch(query);
+                }
                 if (!data?.items?.length) return [];
 
                 let candidates = data.items
@@ -1046,7 +1107,7 @@ const MusicAPI = {
             return null;
         },
 
-        async findVideoId(query, expectedDuration = 0) {
+        async findVideoId(query, expectedDuration = 0, wantedTitle = null) {
             try {
                 const data = await this.invidiousFetch(
                     `/api/v1/search?q=${encodeURIComponent(query)}&type=video&sort_by=relevance`
@@ -1059,15 +1120,21 @@ const MusicAPI = {
 
                 if (candidates.length === 0) return null;
 
-                // Score candidates
+                // Score candidates (same weighting as piped.findVideoIds)
                 const scored = candidates.map(item => {
                     const title = (item.title || '').toLowerCase();
                     const author = (item.author || '').toLowerCase();
                     let score = 0;
 
                     // Score the song title only (see piped.findVideoIds).
+                    // wantedTitle must stay a named parameter: reading it when it
+                    // is not one threw "wantedTitle is not defined" on every
+                    // call, the catch below swallowed it, and this whole
+                    // fallback silently returned null forever.
                     const target = (wantedTitle || queryLower).toLowerCase();
                     const queryWords = target.split(/\s+/).filter(w => w.length > 2);
+                    // Guard: an all-short target leaves queryWords empty and
+                    // 0/0 is NaN, which makes the sort a no-op.
                     if (queryWords.length > 0) {
                         const matchedWords = queryWords.filter(w => title.includes(w));
                         score += (matchedWords.length / queryWords.length) * 100;
@@ -1078,27 +1145,17 @@ const MusicAPI = {
                         score += Math.max(0, 20 - durationDiff * 2);
                     }
 
-                    // Bonus: "official" in title (+20)
-                    if (/\bofficial\b/.test(title)) {
-                        score += 20;
-                    }
-
                     // Push down unrequested versions and reward the artist's own
                     // channel (see piped.findVideoIds).
                     score -= versionPenalty(title, queryLower);
                     if (isOfficialChannel(author, queryLower)) score += OFFICIAL_BONUS;
 
-                    // Light penalty for extra words not in query
-                    const safeWords = new Set([
-                        'official', 'video', 'audio', 'music', 'lyric', 'lyrics',
-                        'hd', 'hq', '4k', '1080p', 'vevo', 'visualizer',
-                        'with', 'feat', 'featuring', 'from', 'the'
-                    ]);
+                    // Penalise title words the query never asked for.
                     const titleWords = title.replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3);
-                    const extraWords = titleWords.filter(w => 
-                        !queryLower.includes(w) && !safeWords.has(w)
+                    const extraWords = titleWords.filter(w =>
+                        !queryLower.includes(w) && !TITLE_NOISE_WORDS.includes(w)
                     );
-                    score -= extraWords.length * 5;
+                    score -= extraWords.length * 10;
 
                     return { item, score };
                 });

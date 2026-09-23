@@ -47,7 +47,7 @@ const Player = {
         // Local installs play through stream-audio.php (yt-dlp audio passthrough)
         // instead of the IFrame: audio-only bandwidth, and no video decode. Off
         // localhost there is no yt-dlp to shell out to, so the IFrame it is.
-        this._streamEnabled = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        this._streamEnabled = typeof MusicAPI !== 'undefined' && MusicAPI.isLocalHost();
 
         // Cache DOM elements
         this.elements = {

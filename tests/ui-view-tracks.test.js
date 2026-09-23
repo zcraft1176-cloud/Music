@@ -75,6 +75,15 @@ if (VIEWS.queue) {
     assert(UI.getCurrentTracks() === B, 'queue view must read Player.queue');
 }
 
+// liked view reads LikedSongs, never the home list.
+// Regression: this arm was missing on Music2, so the Liked page silently
+// returned the home list and played whatever was on the home page.
+const LIKED = [{ id: 'liked1' }, { id: 'liked2' }];
+sandbox.LikedSongs.songs = LIKED;
+VIEWS.home = A;
+UI.currentView = 'liked';
+assert(UI.getCurrentTracks() === LIKED, 'liked view must read LikedSongs.songs, not the home list');
+
 // playlist view reads the live playlist, not a copy
 sandbox.PlaylistManager.playlists = [{ id: 'p1', tracks: A }];
 sandbox.PlaylistManager.currentPlaylistId = 'p1';

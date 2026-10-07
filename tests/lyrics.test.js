@@ -275,6 +275,104 @@ t('a fetched track survives a reload without another network call', async () => 
   assert.ok(session.L._metaEl.innerHTML.includes('cached'), 'badge should mark the cached read');
 });
 
+console.log('\ntimed copy of the same recording');
+
+// Measured on LRCLIB, 2026-10-06. These are the payloads the real API returns
+// for two songs in the user's queue, so the rule is pinned against data, not
+// against a shape someone imagined.
+//
+//   GET /api/get?track_name=Dragonhearted&artist_name=TryHardNinja
+//     -> id 2452861, syncedLyrics "", plainLyrics 1309 chars
+//   GET /api/search?q=dragonhearted tryhardninja
+//     -> 11 hits, 8 timed, including id 2452862 (same title, artist, duration)
+
+const plainDragon = {
+  id: 2452861, trackName: 'Dragonhearted', artistName: 'TryHardNinja',
+  duration: 297, syncedLyrics: '', plainLyrics: 'words',
+};
+const timedDragon = {
+  id: 2452862, trackName: 'Dragonhearted', artistName: 'TryHardNinja',
+  duration: 297, syncedLyrics: '[00:01.00] a\n[00:02.00] b', plainLyrics: '',
+};
+
+t('_fetchExact does not stop at a worded entry with no timings', async () => {
+  // The bare entry answers /api/get and the old code returned it there, so
+  // /api/search -- the only endpoint that carries the timed copy -- never ran.
+  //
+  // NOTE: /api/get returns a bare OBJECT, never an array. That is why this is a
+  // separate branch rather than a `continue` in the loop: `continue` here would
+  // just be a hard syntax error, and it is also why the app's ladder needed the
+  // same shape.
+  const s = load(async url => ({
+    ok: true,
+    json: async () => (String(url).includes('/api/search')
+      ? [plainDragon, timedDragon]
+      : plainDragon),
+  }));
+  s.L._contentEl = el();
+  s.L._metaEl = el();
+  const data = await s.L._fetchExact('Dragonhearted', 'TryHardNinja', null, 296);
+  assert.strictEqual(data, null, 'the plain entry must not end the ladder');
+  assert.ok(s.L._plainHit, 'it must still be held aside as a fallback');
+
+  // ...and the ladder as a whole still lands on the words.
+  await s.L.fetchForTrack({ title: 'Dragonhearted', artist: 'TryHardNinja', duration: 296 });
+  assert.ok(s.L._syncedLines.length, 'the timed copy from search must win');
+});
+
+t('_fetchSearch returns the timed copy, not the higher-scoring plain one', () => {
+  const s = load(async () => ({ ok: true, json: async () => [plainDragon, timedDragon] }));
+  return s.L._fetchSearch('Dragonhearted', 'TryHardNinja', 296).then(got => {
+    assert.ok(got, 'search should return something');
+    assert.strictEqual(got.id, 2452862, 'the timed copy must win');
+    assert.ok(got.syncedLyrics);
+  });
+});
+
+t('a cover with a different duration never outranks the same song', () => {
+  // Queue holds Fallen Kingdom by Gustixa at 185s. LRCLIB's timed entries for
+  // that title are CaptainSparklez/TryHardNinja at 251s -- a different
+  // recording, 66s longer, whose timings would scroll the words out of step.
+  const ownPlain = { trackName: 'Fallen Kingdom', artistName: 'Gustixa',
+                     duration: 186, syncedLyrics: '', plainLyrics: 'own words' };
+  const cover = { trackName: 'Fallen Kingdom', artistName: 'TryHardNinja',
+                  duration: 251, syncedLyrics: '[00:01.00] a', plainLyrics: null };
+  const s = load(async () => ({ ok: true, json: async () => [cover, ownPlain] }));
+  return s.L._fetchSearch('Fallen Kingdom', 'Gustixa', 185).then(got => {
+    assert.ok(got, 'the song has words of its own');
+    assert.strictEqual(got, ownPlain,
+      'the cover is 66s longer: its timings must not be adopted');
+  });
+});
+
+t('the same artist at the same duration wins even with fewer points', () => {
+  // Cloud Bread: the timed copy is filed as `Video, Gustixa` at 102s against
+  // the queue's 102s. Two points made the plain copy win under a pure sum.
+  const plain = { trackName: 'Cloud Bread', artistName: 'Gustixa', duration: 103,
+                  syncedLyrics: '', plainLyrics: 'words' };
+  const timed = { trackName: 'Cloud Bread', artistName: 'Video, Gustixa', duration: 102,
+                  syncedLyrics: '[00:01.00] a', plainLyrics: '' };
+  const s = load(async () => ({ ok: true, json: async () => [plain, timed] }));
+  return s.L._fetchSearch('Cloud Bread', 'Gustixa', 102).then(got => {
+    assert.strictEqual(got, timed);
+  });
+});
+
+t('when only a plain copy exists the words are still shown', async () => {
+  // Lucid Dreams by Gustixa: LRCLIB holds no timed copy of that recording at
+  // all. The answer is the words, not nothing.
+  const s = load(async () => ({ ok: true, json: async () => ({
+    trackName: 'Lucid Dreams', artistName: 'Gustixa', duration: 207,
+    syncedLyrics: '', plainLyrics: 'words here',
+  }) }));
+  s.L._contentEl = el();
+  s.L._metaEl = el();
+  await s.L.fetchForTrack({ title: 'Lucid Dreams', artist: 'Gustixa', duration: 206 });
+  assert.strictEqual(s.L._plainText, 'words here', 'the plain fallback must render');
+});
+
+
+
 console.log('\nformatting');
 
 t('_formatDuration prints m:ss', () => {

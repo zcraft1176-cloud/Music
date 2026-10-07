@@ -313,6 +313,7 @@ const Lyrics = {
         // the newer one and overwrite the panel with the wrong song's lyrics.
         const seq = this._fetchSeq = (this._fetchSeq || 0) + 1;
         this._instrumentalHit = null;
+        this._plainHit = null;
 
         try {
             this._isFetching = true;
@@ -322,6 +323,10 @@ const Lyrics = {
             if (!data) {
                 data = await this._fetchSearch(track.title, track.artist, track.duration);
             }
+
+            // The exact lookup returned words but no timings, and the search
+            // found nothing timed: show the words rather than nothing.
+            if (!data && this._plainHit) data = this._plainHit;
 
             // LRCLIB lists instrumental tracks with no words at all. Only fall
             // back to that once the search has failed too -- otherwise the bare
@@ -365,7 +370,14 @@ const Lyrics = {
         for (const params of [withMeta, base]) {
             const data = await this._lrclibGet(`https://lrclib.net/api/get?${new URLSearchParams(params)}`);
             if (!data) continue;
-            if (data.syncedLyrics || data.plainLyrics) return data;
+            if (data.syncedLyrics) return data;
+            // An entry with words but NO timings is not an answer on its own:
+            // LRCLIB often files a plain copy and a timed copy of the same
+            // recording, and only `/api/search` returns both ("Dragonhearted":
+            // id 2452861 plain vs id 2452862 timed, same title, same artist).
+            // Returning here ended the ladder at the plain one, so the timed
+            // copy was never looked at. Hold it aside and keep going.
+            if (data.plainLyrics) { this._plainHit = data; continue; }
             // Hold it aside. "Kiss Me More" has an exact-duration instrumental
             // entry on LRCLIB, so returning it here would hide the lyrics that
             // the search fallback goes on to find.
@@ -393,6 +405,27 @@ const Lyrics = {
      * take could win. Score on title, artist and duration, and prefer a
      * time-synced entry over a plain one.
      */
+    _scoreHit(wantTitle, wantArtist, r, duration) {
+        const t = String(r.trackName || '').toLowerCase();
+        const a = String(r.artistName || '').toLowerCase();
+        let score = 0;
+        if (t === wantTitle) score += 60;
+        else if (t.includes(wantTitle)) score += 40;
+        else if (wantTitle.includes(t)) score += 25;
+        if (wantArtist) {
+            if (a === wantArtist) score += 30;
+            else if (a.includes(wantArtist) || wantArtist.includes(a)) score += 15;
+        }
+        if (duration && r.duration) {
+            score += Math.max(0, 15 - Math.abs(r.duration - duration) * 3);
+        }
+        if (r.syncedLyrics) score += 10;
+        // An instrumental-only result is worth far less than any entry that
+        // actually carries words.
+        if (!r.syncedLyrics && !r.plainLyrics) score -= 200;
+        return score;
+    },
+
     async _fetchSearch(title, artist, duration) {
         const wantTitle = this._cleanTitle(title).toLowerCase();
         const wantArtist = this._cleanArtist(artist).toLowerCase();
@@ -403,26 +436,7 @@ const Lyrics = {
 
         const scored = results
             .filter(r => r && (r.syncedLyrics || r.plainLyrics || r.instrumental))
-            .map(r => {
-                const t = String(r.trackName || '').toLowerCase();
-                const a = String(r.artistName || '').toLowerCase();
-                let score = 0;
-                if (t === wantTitle) score += 60;
-                else if (t.includes(wantTitle)) score += 40;
-                else if (wantTitle.includes(t)) score += 25;
-                if (wantArtist) {
-                    if (a === wantArtist) score += 30;
-                    else if (a.includes(wantArtist) || wantArtist.includes(a)) score += 15;
-                }
-                if (duration && r.duration) {
-                    score += Math.max(0, 15 - Math.abs(r.duration - duration) * 3);
-                }
-                if (r.syncedLyrics) score += 10;
-                // An instrumental-only result is worth far less than any entry
-                // that actually carries words.
-                if (!r.syncedLyrics && !r.plainLyrics) score -= 200;
-                return { r, score };
-            })
+            .map(r => ({ r, score: this._scoreHit(wantTitle, wantArtist, r, duration) }))
             .sort((x, y) => y.score - x.score);
 
         if (!scored.length) return null;
@@ -431,7 +445,44 @@ const Lyrics = {
             if (!this._instrumentalHit) this._instrumentalHit = best;
             return null;
         }
+        // A plain entry is only what the ranking found; a TIMED one the same
+        // response also returned for this song is strictly better, and the
+        // plain one stays renderable either way. The timed entry still has to
+        // be the same recording -- title match plus artist-or-duration -- or a
+        // cover's timings would be forced onto this song ("Fallen Kingdom" by
+        // Gustixa is 185s; the TryHardNinja one is 251s).
+        if (!best.syncedLyrics) {
+            const timed = results
+                .filter(r => r && r.syncedLyrics && this._sameRecording(wantTitle, wantArtist, r, duration))
+                .sort((x, y) => this._scoreHit(wantTitle, wantArtist, y, duration)
+                              - this._scoreHit(wantTitle, wantArtist, x, duration));
+            if (timed.length) return timed[0];
+        }
         return best;
+    },
+
+    /**
+     * Is this hit the SAME recording as the track being looked up?
+     *
+     * Title match, plus either the artist or the duration. Requiring both would
+     * reject the copies LRCLIB files under a slightly different artist credit
+     * ("Cloud Bread" appears as artist `Video, Gustixa`); requiring only the
+     * title would accept a cover, whose timings would scroll the words out of
+     * step.
+     */
+    _sameRecording(wantTitle, wantArtist, r, duration) {
+        const t = String(r.trackName || '').toLowerCase();
+        if (!t) return false;
+        const titleOk = t === wantTitle || t.includes(wantTitle) || wantTitle.includes(t);
+        if (!titleOk) return false;
+
+        const a = String(r.artistName || '').toLowerCase();
+        const artistOk = !!wantArtist &&
+            (a === wantArtist || a.includes(wantArtist) || wantArtist.includes(a));
+        if (artistOk) return true;
+
+        const d = Number(r.duration);
+        return !!(duration && d && Math.abs(d - duration) <= 5);
     },
 
     /**

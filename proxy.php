@@ -48,9 +48,17 @@ $allowedDomains = [
 ];
 
 $parsed = parse_url($url);
-$host = $parsed['host'] ?? '';
+$host   = strtolower(rtrim($parsed['host'] ?? '', '.'));
+$scheme = strtolower($parsed['scheme'] ?? '');
 
-if (!in_array($host, $allowedDomains)) {
+// Host saja tidak cukup: gopher://api.deezer.com/... punya host yang sama.
+if ($scheme !== 'http' && $scheme !== 'https') {
+    http_response_code(400);
+    echo json_encode(['error' => 'Only http/https allowed']);
+    exit;
+}
+
+if (!in_array($host, $allowedDomains, true)) {
     http_response_code(403);
     echo json_encode(['error' => 'Domain not allowed']);
     exit;
@@ -62,6 +70,8 @@ curl_setopt_array($ch, [
     CURLOPT_URL => $url,
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+    CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
     CURLOPT_TIMEOUT => 25,
     CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     CURLOPT_HTTPHEADER => ['Accept: application/json']

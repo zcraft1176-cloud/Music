@@ -1,0 +1,7 @@
+# XAMPP-only endpoints. Nothing on the deployment declares a PHP runtime, so
+# these would be served as static text -- i.e. published source code. The app
+# calls /api/* there (see MusicAPI.isLocalHost), never these.
+proxy.php
+search-audio.php
+stream-audio.php
+download-proxy.php

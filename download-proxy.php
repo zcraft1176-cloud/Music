@@ -26,11 +26,34 @@ if (isset($_GET['url'])) {
     $filename = isset($_GET['filename']) ? $_GET['filename'] : 'download.mp3';
     
     $parsed = parse_url($url);
-    $host = $parsed['host'] ?? '';
-    $allowed = ['googlevideo.com', 'piped', 'jamendo.com', 'archive.org', 'dzcdn.net', 'deezer.com'];
+    $scheme = strtolower($parsed['scheme'] ?? '');
+    $host   = strtolower(rtrim($parsed['host'] ?? '', '.'));
+    // CDN audio saja. Cocokkan EKOR domain, bukan substring: 'piped' dulu
+    // menerima piped.localtest.me (-> 127.0.0.1). Lihat bug SSRF.
+    $allowed = ['googlevideo.com', 'jamendo.com', 'archive.org', 'dzcdn.net', 'deezer.com'];
+
+    if ($scheme !== 'http' && $scheme !== 'https') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Only http/https allowed']);
+        exit;
+    }
+
     $isAllowed = false;
     foreach ($allowed as $p) {
-        if (stripos($host, $p) !== false) { $isAllowed = true; break; }
+        if ($host === $p || substr($host, -strlen('.' . $p)) === '.' . $p) { $isAllowed = true; break; }
+    }
+
+    // Tolak hasil resolve ke alamat privat/loopback (DNS rebinding ke LAN).
+    if ($isAllowed) {
+        $ip = gethostbyname($host);
+        if ($ip !== $host && filter_var($ip, FILTER_VALIDATE_IP)) {
+            $public = filter_var(
+                $ip,
+                FILTER_VALIDATE_IP,
+                FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+            );
+            if ($public === false) { $isAllowed = false; }
+        }
     }
     
     if (!$isAllowed) {
@@ -39,13 +62,15 @@ if (isset($_GET['url'])) {
         exit;
     }
     
-    $safeName = preg_replace('/[<>:"\/\\\\|?*]/', '', $filename) ?: 'download.mp3';
+    $safeName = preg_replace('/[<>:"\/\\\\|?*\r\n\x00]/', '', $filename) ?: 'download.mp3';
     
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_MAXREDIRS => 5,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+        CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
         CURLOPT_TIMEOUT => 240,
         CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     ]);
@@ -71,7 +96,7 @@ if (isset($_GET['url'])) {
 if (isset($_GET['videoId'])) {
     $videoId = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['videoId']);
     $title = isset($_GET['title']) ? $_GET['title'] : 'download';
-    $safeName = preg_replace('/[<>:"\/\\\\|?*]/', '', $title);
+    $safeName = preg_replace('/[<>:"\/\\\\|?*\r\n\x00]/', '', $title);
     $safeName = trim($safeName) ?: 'download';
     
     $projectDir = __DIR__;

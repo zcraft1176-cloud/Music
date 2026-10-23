@@ -41,10 +41,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing url parameter' });
     }
 
-    // Whitelist check
+    // Whitelist check. Host saja tidak cukup: gopher://api.deezer.com/... punya
+    // host yang sama, dan fetch() di Node mengikuti skema apa pun yang dikenalnya.
     try {
         const parsed = new URL(url);
-        if (!allowedDomains.includes(parsed.hostname)) {
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return res.status(400).json({ error: 'Only http/https allowed' });
+        }
+        const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
+        if (!allowedDomains.includes(host)) {
             return res.status(403).json({ error: 'Domain not allowed' });
         }
     } catch (e) {

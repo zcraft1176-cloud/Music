@@ -5,19 +5,30 @@
  * 2. POST: Proxy requests to Cobalt API
  */
 
+// Setiap pola WAJIB berjangkar dan memakai titik literal. Bentuk lama
+// (/jamendo/, /cobalt/, /^pipedapi\./) menerima jamendo.evil.tld dan
+// cobalt.attacker.tld — terbukti 502 vs 403 di host live.
 const allowedPatterns = [
-    /\.googlevideo\.com$/,
-    /^pipedproxy\./,
-    /\.piped\./,
-    /\.jamendo\.com$/,
-    /jamendo/,
-    /\.archive\.org$/,
-    /\.dzcdn\.net$/,
-    /\.deezer\.com$/,
-    /^api\.piped\./,
-    /^pipedapi\./,
-    /cobalt/,
+    /(^|\.)googlevideo\.com$/,
+    /(^|\.)jamendo\.com$/,
+    /(^|\.)archive\.org$/,
+    /(^|\.)dzcdn\.net$/,
+    /(^|\.)deezer\.com$/,
 ];
+
+// Instance Piped/Invidious yang memang dipakai src/js/api.js. Dicocokkan PERSIS:
+// pola apa pun yang menerima akhiran bebas (mis. /(^|\.)piped\./) ikut menerima
+// piped.localtest.me -> 127.0.0.1, yaitu SSRF yang sama dengan download-proxy.php.
+const allowedHosts = new Set([
+    'api.piped.private.coffee',
+    'pipedapi.kavin.rocks',
+    'pipedapi.adminforge.de',
+    'pipedapi.leptons.xyz',
+    'pipedapi.in.projectsegfau.lt',
+    'inv.thepixora.com',
+    'invidious.f5.si',
+    'yt.chocolatemoo53.com',
+]);
 
 export default async function handler(req, res) {
     // CORS headers
@@ -39,7 +50,11 @@ export default async function handler(req, res) {
 
         try {
             const parsed = new URL(url);
-            const allowed = allowedPatterns.some(pattern => pattern.test(parsed.hostname));
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+                return res.status(400).json({ error: 'Only http/https allowed' });
+            }
+            const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
+            const allowed = allowedHosts.has(host) || allowedPatterns.some(pattern => pattern.test(host));
             if (!allowed) {
                 return res.status(403).json({ error: `Domain not allowed: ${parsed.hostname}` });
             }
@@ -47,7 +62,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid URL' });
         }
 
-        const safeName = filename.replace(/[<>:"/\\|?*]/g, '').trim() || 'download.mp3';
+        const safeName = filename.replace(/[<>:"/\\|?*\r\n\x00]/g, '').trim() || 'download.mp3';
 
         try {
             const response = await fetch(url, {

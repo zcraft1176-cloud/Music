@@ -57,7 +57,7 @@
         },
         "inLanguage": ["id", "en"],
         "browserRequirements": "Requires JavaScript. Requires HTML5.",
-        "softwareVersion": "2.0"
+        "softwareVersion": "2.1"
     }
     </script>
 
@@ -393,13 +393,27 @@
                                 </div>
                                 <div>
                                     <h3 class="text-lg font-bold">MsicFree</h3>
-                                    <p class="text-sm text-gray-400">v2.0 — YouTube IFrame Engine</p>
+                                    <p class="text-sm text-gray-400">v2.1 &middot; Web, Android &amp; Windows</p>
                                 </div>
                             </div>
                             <p class="text-sm text-gray-400 leading-relaxed">
-                                Aplikasi streaming musik gratis yang menggabungkan metadata Deezer dengan audio dari YouTube.
-                                Cari jutaan lagu, buat playlist, dan dengarkan langsung di browser tanpa akun.
+                                Pemutar musik gratis yang mengambil metadata dari Deezer dan audionya dari YouTube.
+                                Cari jutaan lagu, buat playlist, tandai lagu favorit, baca lirik yang tersinkron,
+                                dan unduh MP3 &mdash; semuanya tanpa akun.
                             </p>
+                            <p class="text-sm text-gray-400 leading-relaxed mt-3">
+                                Tersedia di browser, sebagai APK Android (7.0 ke atas), dan sebagai aplikasi
+                                Windows. Versi aplikasi menyimpan lagu di perangkat, jadi bisa diputar ulang
+                                tanpa jaringan dan tanpa mencari ulang ke YouTube.
+                            </p>
+                            <a href="https://github.com/zcraft1176-cloud/Music/releases/latest"
+                               target="_blank" rel="noopener"
+                               class="inline-flex items-center gap-2 mt-4 text-sm text-primary hover:underline">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Unduh aplikasi Android / Windows
+                            </a>
                         </div>
 
                         <!-- How It Works -->
@@ -417,14 +431,14 @@
                                     <span class="bg-cyan-500/20 text-cyan-400 px-2.5 py-1 rounded-lg font-mono text-xs whitespace-nowrap">Step 2</span>
                                     <div>
                                         <p class="text-white font-medium">Temukan video YouTube via Piped</p>
-                                        <p class="text-gray-400">Pencarian akurat dengan title matching & durasi — fallback ke unfiltered search</p>
+                                        <p class="text-gray-400">Pencocokan judul dan durasi, dengan cadangan pencarian tanpa filter kalau hasil pertama tidak cocok</p>
                                     </div>
                                 </div>
                                 <div class="flex gap-4 items-start">
                                     <span class="bg-red-500/20 text-red-400 px-2.5 py-1 rounded-lg font-mono text-xs whitespace-nowrap">Step 3</span>
                                     <div>
                                         <p class="text-white font-medium">Putar audio via YouTube IFrame</p>
-                                        <p class="text-gray-400">Hidden player — kualitas audio YouTube standar (AAC ~128kbps)</p>
+                                        <p class="text-gray-400">Pemutar tersembunyi. Kalau IFrame diblokir, audio diambil lewat server sebagai cadangan</p>
                                     </div>
                                 </div>
                             </div>
@@ -458,7 +472,7 @@
                                 <div class="flex items-center justify-between p-3 bg-dark-100 rounded-lg">
                                     <div class="flex items-center gap-3">
                                         <span class="bg-pink-500/20 text-pink-400 px-2.5 py-0.5 rounded font-medium">Jamendo</span>
-                                        <span class="text-gray-300">Musik indie — direct stream 320kbps</span>
+                                        <span class="text-gray-300">Musik indie, stream langsung 320 kbps</span>
                                     </div>
                                     <span class="text-gray-500 text-xs" id="jamendoStatusBadge">○ Perlu API Key</span>
                                 </div>

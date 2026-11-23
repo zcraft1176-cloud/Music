@@ -189,6 +189,10 @@ const Lyrics = {
             .replace(/\((?:feat|ft|with)\.?[^)]*\)/gi, ' ')
             .replace(/\[(?:feat|ft|with)\.?[^\]]*\]/gi, ' ')
             .replace(/\s*[-\u2013]\s*(?:remaster(?:ed)?|radio edit|single version|album version|bonus track)\b.*$/i, ' ')
+            // YouTube upload titles carry the video format, LRCLIB does not:
+            // "Bohemian Rhapsody (Official Video)" is filed as the bare name.
+            // Anything inside these brackets is not part of the song title.
+            .replace(/[([][^)\]]*\b(?:official|lyric|lyrics|audio|video|visuali[sz]er|hd|hq|mv|m\/v|full song|explicit)\b[^)\]]*[)\]]/gi, ' ')
             .replace(/\s+/g, ' ')
             .trim();
     },

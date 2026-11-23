@@ -201,35 +201,98 @@ const App = {
             }
         });
 
-        // Media session API for OS-level media controls
+        // Media session API: OS-level media controls. On Windows this is what
+        // NotchPixel/Nusa's notch reads (title, artist, length, seek), and what
+        // it forwards to LRCLIB to find synced lyrics.
         if ('mediaSession' in navigator) {
-            navigator.mediaSession.setActionHandler('play', () => Player.togglePlayPause());
-            navigator.mediaSession.setActionHandler('pause', () => Player.pause());
-            navigator.mediaSession.setActionHandler('previoustrack', () => Player.prev());
-            navigator.mediaSession.setActionHandler('nexttrack', () => Player.next());
+            const ms = navigator.mediaSession;
+            ms.setActionHandler('play', () => Player.togglePlayPause());
+            ms.setActionHandler('pause', () => Player.pause());
+            ms.setActionHandler('previoustrack', () => Player.prev());
+            ms.setActionHandler('nexttrack', () => Player.next());
+
+            const seekTo = (t) => {
+                if (Player._source === 'youtube' && Player.ytPlayer && Player.ytReady) {
+                    Player.ytPlayer.seekTo(t, true);
+                } else if (isFinite(Player.audio.duration)) {
+                    Player.audio.currentTime = Math.max(0, Math.min(Player.audio.duration, t));
+                }
+                this.syncMediaSession();
+            };
+
+            // Clicking a lyric line in the notch sends seekto. Without a handler
+            // the click is silently ignored.
+            ms.setActionHandler('seekto', (d) => {
+                if (typeof d.seekTime === 'number') seekTo(d.seekTime);
+            });
+            ms.setActionHandler('seekbackward', (d) => Player.seekBy(-(d.seekOffset || 10)));
+            ms.setActionHandler('seekforward', (d) => Player.seekBy(d.seekOffset || 10));
+            ms.setActionHandler('stop', () => Player.pause());
         }
 
-        // Update media session when track changes
-        Player.audio.addEventListener('play', () => {
-            if (Player.currentTrack && 'mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: Player.currentTrack.title,
-                    artist: Player.currentTrack.artist,
-                    album: Player.currentTrack.album,
-                    artwork: [
-                        { src: Player.currentTrack.cover, sizes: '96x96', type: 'image/jpeg' },
-                        { src: Player.currentTrack.cover, sizes: '128x128', type: 'image/jpeg' },
-                        { src: Player.currentTrack.cover, sizes: '192x192', type: 'image/jpeg' },
-                        { src: Player.currentTrack.cover, sizes: '256x256', type: 'image/jpeg' },
-                        { src: Player.currentTrack.cover, sizes: '384x384', type: 'image/jpeg' },
-                        { src: Player.currentTrack.cover, sizes: '512x512', type: 'image/jpeg' }
-                    ]
-                });
-            }
-        });
+        // One poll drives the OS state for both playback sources (HTML5 audio
+        // and the YouTube IFrame never share an event) and catches autoplay-next.
+        setInterval(() => this.syncMediaSession(), 1000);
+        this.syncMediaSession();
 
         // Mobile gestures
         this.setupMobileGestures();
+    },
+
+    /**
+     * Publish what's playing to Windows SMTC (title, artist, length, position).
+     * Nusa's notch reads this, and passes title/artist/length to LRCLIB for
+     * synced lyrics -- so a missing duration here means "lyrics not found".
+     */
+    syncMediaSession() {
+        if (!('mediaSession' in navigator) || typeof Player === 'undefined') return;
+        const ms = navigator.mediaSession;
+        const track = Player.currentTrack;
+
+        if (!track) {
+            ms.metadata = null;
+            ms.playbackState = 'none';
+            return;
+        }
+
+        // Strip the noise LRCLIB does not carry: "(Official Video)", "- Topic".
+        const cleanTitle = typeof Lyrics !== 'undefined' ? Lyrics._cleanTitle(track.title) : track.title;
+        const cleanArtist = String(track.artist || '')
+            .replace(/\s*-\s*Topic$/i, '').replace(/\s*VEVO$/i, '').trim();
+
+        const key = `${cleanTitle}|${cleanArtist}|${track.cover || ''}`;
+        if (key !== this._msKey) {
+            this._msKey = key;
+            const art = track.cover ? [96, 128, 192, 256, 384, 512].map(s => ({
+                src: track.cover, sizes: `${s}x${s}`
+            })) : [];
+            ms.metadata = new MediaMetadata({
+                title: cleanTitle,
+                artist: cleanArtist,
+                album: track.album || '',
+                artwork: art
+            });
+        }
+
+        const isYt = Player._source === 'youtube' && Player.ytPlayer && Player.ytReady;
+        const pos = isYt ? (Player.ytPlayer.getCurrentTime() || 0) : (Player.audio.currentTime || 0);
+        // Nusa sends this length to LRCLIB; a missing one makes every lookup
+        // miss, so fall back to the catalogue duration while audio loads.
+        const dur = isYt ? (Player.ytPlayer.getDuration() || 0) : (Player.audio.duration || track.duration || 0);
+
+        ms.playbackState = Player.isPlaying ? 'playing' : 'paused';
+
+        // Some browsers throw when position > duration (live streams, stale
+        // duration after a skip), and one throw kills the whole poll.
+        if (isFinite(dur) && dur > 0 && isFinite(pos)) {
+            try {
+                ms.setPositionState({
+                    duration: dur,
+                    position: Math.min(pos, dur),
+                    playbackRate: 1 // spec rejects 0; pausing is signalled by playbackState
+                });
+            } catch (e) { /* not fatal */ }
+        }
     },
 
     /**

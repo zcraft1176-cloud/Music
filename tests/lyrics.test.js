@@ -112,6 +112,14 @@ t('_cleanTitle keeps a version the user actually clicked', () => {
   assert.strictEqual(L._cleanTitle('Havana (Live)'), 'Havana (Live)');
 });
 
+t('_cleanTitle drops a YouTube video-format suffix', () => {
+  // LRCLIB files the song, not the upload: Nusa looks it up by this title.
+  assert.strictEqual(L._cleanTitle('Bohemian Rhapsody (Official Video)'), 'Bohemian Rhapsody');
+  assert.strictEqual(L._cleanTitle('Blinding Lights [Official Audio]'), 'Blinding Lights');
+  assert.strictEqual(L._cleanTitle('Levitating (Lyrics)'), 'Levitating');
+  assert.strictEqual(L._cleanTitle('Sunflower (Official Music Video) HD'), 'Sunflower HD');
+});
+
 t('_cleanArtist keeps only the lead credit', () => {
   assert.strictEqual(L._cleanArtist('Post Malone, Swae Lee'), 'Post Malone');
   assert.strictEqual(L._cleanArtist('Doja Cat, SZA'), 'Doja Cat');

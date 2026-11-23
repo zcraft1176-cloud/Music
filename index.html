@@ -157,6 +157,23 @@
                 </button>
             </div>
 
+            <!-- Download the desktop / Android app. The binaries live in the
+                 GitHub release, not in git: an APK and an installer are ~78 MB
+                 each, and Vercel would serve them from the repo tarball anyway.
+                 Release assets are also versioned, so the link below keeps
+                 working when a newer build is uploaded under its own tag. -->
+            <div class="px-4 pb-2">
+                <button id="appDownloadBtn" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left border border-gray-800 hover:border-primary hover:bg-dark-100 transition-colors">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium">Download App</div>
+                        <div class="text-[10px] text-gray-500">Android &amp; Windows</div>
+                    </div>
+                </button>
+            </div>
+
             <!-- Playlists List (desktop sidebar only) -->
             <div id="sidebarPlaylists" class="p-4">
                 <div class="flex items-center justify-between mb-3">
@@ -836,6 +853,59 @@
         </button>
     </nav>
 
+    <!-- Download App Modal -->
+    <div id="appDownloadModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] hidden">
+        <div class="bg-dark-200 rounded-xl p-6 w-full max-w-md mx-4 border border-gray-800">
+            <div class="flex items-start justify-between mb-1">
+                <h3 class="text-lg font-bold">Get the MsicFree app</h3>
+                <button id="appDownloadClose" class="text-gray-400 hover:text-white transition-colors" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <p class="text-xs text-gray-400 mb-5">Versi 1.0.3 &middot; sama isinya dengan web, plus pemutaran offline dan lirik yang tersimpan.</p>
+
+            <a href="https://github.com/zcraft1176-cloud/Music/releases/download/v1.0.3/Msicfree-1.0.3-arm64.apk"
+               class="flex items-center gap-3 p-3 rounded-lg bg-dark-100 border border-gray-800 hover:border-primary transition-colors mb-2">
+                <svg class="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.6 9.48l1.84-3.18a.38.38 0 10-.66-.38l-1.87 3.23a11.4 11.4 0 00-9.82 0L5.22 5.92a.38.38 0 10-.66.38L6.4 9.48A10.8 10.8 0 000 18h24a10.8 10.8 0 00-6.4-8.52zM7 15.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm10 0a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z"/>
+                </svg>
+                <div class="min-w-0 flex-1">
+                    <div class="text-sm font-medium">Android &mdash; arm64</div>
+                    <div class="text-[10px] text-gray-500">69 MB &middot; HP modern (99%)</div>
+                </div>
+            </a>
+
+            <a href="https://github.com/zcraft1176-cloud/Music/releases/download/v1.0.3/Msicfree-1.0.3-arm32.apk"
+               class="flex items-center gap-3 p-3 rounded-lg bg-dark-100 border border-gray-800 hover:border-primary transition-colors mb-2">
+                <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.6 9.48l1.84-3.18a.38.38 0 10-.66-.38l-1.87 3.23a11.4 11.4 0 00-9.82 0L5.22 5.92a.38.38 0 10-.66.38L6.4 9.48A10.8 10.8 0 000 18h24a10.8 10.8 0 00-6.4-8.52zM7 15.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm10 0a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z"/>
+                </svg>
+                <div class="min-w-0 flex-1">
+                    <div class="text-sm font-medium">Android &mdash; arm32</div>
+                    <div class="text-[10px] text-gray-500">66 MB &middot; hanya untuk HP lama</div>
+                </div>
+            </a>
+
+            <a href="https://github.com/zcraft1176-cloud/Music/releases/download/v1.0.3/Msicfree-1.0.3-installer.exe"
+               class="flex items-center gap-3 p-3 rounded-lg bg-dark-100 border border-gray-800 hover:border-primary transition-colors">
+                <svg class="w-6 h-6 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M0 3.45L9.75 2.1v9.45H0V3.45zm10.95-1.5L24 0v11.55H10.95V1.95zM0 12.45h9.75v9.45L0 20.55v-8.1zm10.95 0H24V24l-13.05-1.8v-9.75z"/>
+                </svg>
+                <div class="min-w-0 flex-1">
+                    <div class="text-sm font-medium">Windows &mdash; installer</div>
+                    <div class="text-[10px] text-gray-500">78 MB &middot; tidak perlu admin</div>
+                </div>
+            </a>
+
+            <p class="text-[10px] text-gray-500 mt-4 leading-relaxed">
+                Android: izinkan &ldquo;install unknown apps&rdquo; saat ditanya.
+                Windows: installer per-user, lokasi bisa dipilih (default %LOCALAPPDATA%\Programs\Msicfree).
+            </p>
+        </div>
+    </div>
+
     <!-- Create Playlist Modal -->
     <div id="createPlaylistModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
         <div class="bg-dark-200 rounded-xl p-6 w-full max-w-md mx-4">
@@ -988,6 +1058,6 @@
     <script src="src/js/download.js?v=3.9"></script>
     <script src="src/js/import-playlist.js?v=3.9"></script>
 
-    <script src="src/js/app.js?v=3.10"></script>
+    <script src="src/js/app.js?v=3.11"></script>
 </body>
 </html>

@@ -19,6 +19,7 @@ const App = {
             PlaylistManager.init();
             if (typeof PlaylistImporter !== 'undefined') PlaylistImporter.init();
             LikedSongs.init();
+            this.initAppDownload();
             if (typeof Downloader !== 'undefined') Downloader.init();
             Search.init();
 
@@ -237,6 +238,26 @@ const App = {
 
         // Mobile gestures
         this.setupMobileGestures();
+    },
+
+    /**
+     * "Download App" modal. The binaries live in the GitHub release, so this
+     * only shows/hides the links -- nothing is fetched here, and the modal
+     * stays usable while a track plays.
+     */
+    initAppDownload() {
+        const btn = document.getElementById('appDownloadBtn');
+        const modal = document.getElementById('appDownloadModal');
+        if (!btn || !modal) return;
+        const close = () => modal.classList.add('hidden');
+        btn.addEventListener('click', () => modal.classList.remove('hidden'));
+        document.getElementById('appDownloadClose')?.addEventListener('click', close);
+        // Backdrop click closes, but a click that started inside the panel must
+        // not: dragging a link out of it would otherwise shut the dialog.
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+        });
     },
 
     /**
